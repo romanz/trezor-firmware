@@ -6,6 +6,7 @@ verify_ssl = true
 [packages]
 trezor = {git = "https://github.com/trezor/python-trezor", editable = true, ref = "master"}
 protobuf = "==3.4.0"
+pyblake2 = "*"
 
 # python-trezor tests
 pytest = "*"

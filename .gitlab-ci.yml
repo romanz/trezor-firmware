@@ -1,0 +1,55 @@
+image: debian
+
+stages:
+  - environment
+  - style
+  - build
+  - test
+
+environment:
+  stage: environment
+  variables:
+    CONTAINER_NAME: "$CI_REGISTRY/trezor/trezor-firmware/environment"
+  image: docker:latest
+  services:
+    - docker:dind
+  before_script:
+    - docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
+  when: manual
+  script:
+    - docker pull $CONTAINER_NAME:latest || true
+    - docker build --cache-from $CONTAINER_NAME:latest --tag $CONTAINER_NAME:$CI_COMMIT_SHA --tag $CONTAINER_NAME:latest .
+    - docker push $CONTAINER_NAME:$CI_COMMIT_SHA
+    - docker push $CONTAINER_NAME:latest
+
+before_script:
+  - git submodule update --init --recursive --force
+  - pipenv install
+
+style:
+  image: registry.corp.sldev.cz/trezor/trezor-firmware/environment
+  script:
+    - pipenv run make style_check
+    - cd core && pipenv run make templates_check  # TODO
+
+build core:
+  stage: build
+  image: registry.corp.sldev.cz/trezor/trezor-firmware/environment
+  script:
+    - cd core
+    - pipenv run make build_cross
+    - pipenv run make build_boardloader
+    - pipenv run make build_bootloader
+    - pipenv run make build_prodtest
+    - pipenv run make build_firmware
+    # - test "$TREZOR_MODEL" = "1" || pipenv run make sizecheck
+
+test unix:
+  stage: test
+  image: registry.corp.sldev.cz/trezor/trezor-firmware/environment
+  script:
+    - cd core
+    - pipenv run make build_unix_noui
+    - pipenv run make test
+    - pipenv run make test_emu
+    - pipenv run make test_emu_monero
