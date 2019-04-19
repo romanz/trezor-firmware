@@ -72,7 +72,7 @@ build core:
     # - test "$TREZOR_MODEL" = "1" || pipenv run make sizecheck
   artifacts:
     paths:
-    - build/firmware/firmware.bin
-    - build/bootloader/bootloader.bin
-    - build/boardloader/boardloader.bin
+    - core/build/firmware/firmware.bin
+    - core/build/bootloader/bootloader.bin
+    - core/build/boardloader/boardloader.bin
     expire_in: 1 week
