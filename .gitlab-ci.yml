@@ -3,8 +3,8 @@ image: debian
 stages:
   - environment
   - style
-  - build
   - test
+  - build
 
 environment:
   stage: environment
