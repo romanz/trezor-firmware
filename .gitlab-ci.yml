@@ -33,6 +33,30 @@ style:
     - pipenv run make style_check
     - cd core && pipenv run make templates_check  # TODO
 
+test core unix unit:
+  stage: test
+  image: registry.corp.sldev.cz/trezor/trezor-firmware/environment
+  script:
+    - cd core
+    - pipenv run make build_unix_noui
+    - pipenv run make test
+
+test core unix device:
+  stage: test
+  image: registry.corp.sldev.cz/trezor/trezor-firmware/environment
+  script:
+    - cd core
+    - pipenv run make build_unix_noui
+    - pipenv run make test_emu
+
+test core unix monero:
+  stage: test
+  image: registry.corp.sldev.cz/trezor/trezor-firmware/environment
+  script:
+    - cd core
+    - pipenv run make build_unix_noui
+    - pipenv run make test_emu_monero
+
 build core:
   stage: build
   image: registry.corp.sldev.cz/trezor/trezor-firmware/environment
@@ -44,13 +68,3 @@ build core:
     - pipenv run make build_prodtest
     - pipenv run make build_firmware
     # - test "$TREZOR_MODEL" = "1" || pipenv run make sizecheck
-
-test core unix:
-  stage: test
-  image: registry.corp.sldev.cz/trezor/trezor-firmware/environment
-  script:
-    - cd core
-    - pipenv run make build_unix_noui
-    - pipenv run make test
-    - pipenv run make test_emu
-    - pipenv run make test_emu_monero
