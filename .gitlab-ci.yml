@@ -27,6 +27,7 @@ before_script:
   - pipenv install
 
 style:
+  stage: style
   image: registry.corp.sldev.cz/trezor/trezor-firmware/environment
   script:
     - pipenv run make style_check
@@ -44,7 +45,7 @@ build core:
     - pipenv run make build_firmware
     # - test "$TREZOR_MODEL" = "1" || pipenv run make sizecheck
 
-test unix:
+test core unix:
   stage: test
   image: registry.corp.sldev.cz/trezor/trezor-firmware/environment
   script:
