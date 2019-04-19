@@ -59,8 +59,8 @@ test core unix monero:
 
 build core:
   stage: build
-  only:
-    - master
+  # only:
+  #   - master
   image: registry.corp.sldev.cz/trezor/trezor-firmware/environment
   script:
     - cd core
