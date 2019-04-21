@@ -137,9 +137,50 @@ class TestCryptoSecp256k1(Secp256k1Common, unittest.TestCase):
     def __init__(self):
         self.impl = secp256k1
 
+
+def random_value(n_bits):
+    value = 0
+    while n_bits:
+        bits = min(n_bits, 32)
+        max_value = (1 << bits) - 1
+        value = (value << bits) | random.uniform(max_value)
+        n_bits -= bits
+    return value
+
 class TestCryptoSecp256k1Zkp(Secp256k1Common, unittest.TestCase):
     def __init__(self):
         self.impl = secp256k1_zkp.Context()
+
+    def test_blind(self):
+        scratch_buffer = secp256k1_zkp.allocate_scratch_buffer()
+
+        for n_bits in (1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 63):
+            for _ in range(10):
+                asset = random.bytes(32)
+                asset_blind = random.bytes(32)
+
+                value = max(1, random_value(n_bits))
+                value_blind = random.bytes(32)
+
+                conf_asset = self.impl.blind_generator(asset, asset_blind)
+                conf_value = self.impl.pedersen_commit(value, value_blind, conf_asset)
+
+                extra_commit = random.bytes(25) # would be `script_pubkey`
+                nonce = random.bytes(32)        # would be derived using ECDH
+
+                asset_message = asset + asset_blind
+                range_proof_view = self.impl.rangeproof_sign(
+                    value, conf_value, value_blind, nonce, asset_message, extra_commit,
+                    conf_asset, scratch_buffer)
+                assert scratch_buffer.startswith(range_proof_view)
+
+                asset_message_buf = bytearray(64)
+                result = self.impl.rangeproof_rewind(
+                    conf_value, conf_asset, nonce, range_proof_view, extra_commit,
+                    asset_message_buf)
+
+                assert result == (value, value_blind, asset + asset_blind)
+
 
 if __name__ == '__main__':
     unittest.main()

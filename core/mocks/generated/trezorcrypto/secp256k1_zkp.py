@@ -54,8 +54,42 @@ class Context:
         key. Returns public key on success, None if the signature is invalid.
         """
 
-    def multiply(self, secret_key: bytes, public_key: bytes) -> bytes:
+    def multiply(
+        self, secret_key: bytes, public_key: bytes, compressed: bool = False
+    ) -> bytes:
         """
         Multiplies point defined by public_key with scalar defined by
         secret_key. Useful for ECDH.
         """
+
+    def blind_generator(asset: bytes, blinding_factor: bytes) -> bytes:
+        '''
+        Generate blinded generator for the specified confidential asset.
+        '''
+
+    def pedersen_commit(self, value: long, blinding_factor: bytes, gen: bytes)
+    -> bytes:
+        '''
+        Commit to specified integer value, using given 32-byte blinding factor.
+        '''
+
+    def rangeproof_sign(self, value: int, commit: bytes, blind: bytes,
+                        nonce: bytes, message: bytes, extra_commit: bytes,
+                        gen: bytes, scratch_buffer: bytearray) -> memoryview:
+        '''
+        Return a range proof for specified value (as a memoryview).
+        '''
+
+    def rangeproof_rewind(self, conf_value: bytes, conf_asset: bytes,
+                          nonce: bytes, range_proof: bytes,
+                          extra_commit: bytes, asset_message: bytearray) ->
+                          (value: long, blind: bytes,
+                           asset_message: memoryview):
+        '''
+        Rewind a range proof to get the value, blinding factor and message.
+        '''
+
+    def allocate_scratch_buffer() -> bytearray
+        '''
+        Allocate a buffer, large enough for holding a range/surjection proof.
+        '''
