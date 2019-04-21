@@ -67,14 +67,11 @@ class Secp256k1Common(object):
             sk = hex(sk)[2:]
             if len(sk) < 64:
                 sk = '0' * (64 - len(sk)) + sk
-            pk = pk.lower()
-            pk65 = hexlify(self.impl.publickey(unhexlify(sk), False)).decode()  # uncompressed
-            self.assertEqual(str(pk65), '04' + pk)
-            pk33 = hexlify(self.impl.publickey(unhexlify(sk))).decode()
-            if pk[-1] in '02468ace':
-                self.assertEqual(pk33, '02' + pk[:64])
-            else:
-                self.assertEqual(pk33, '03' + pk[:64])
+            pk = unhexlify('04' + pk)
+            pk65 = self.impl.publickey(unhexlify(sk), False)  # uncompressed
+            self.assertEqual(pk65, pk)
+            pk33 = self.impl.publickey(unhexlify(sk))
+            self.assertEqual(pk33, compress_pubkey(pk))
 
     def test_sign_verify_min_max(self):
         sk = self.impl.generate_secret()
@@ -133,13 +130,194 @@ class Secp256k1Common(object):
         self.assertEqual(fixed_vector1, fixed_vector2)
         self.assertEqual(hexlify(fixed_vector1), fixed_vector_hex)
 
+
+def compress_pubkey(pk: bytes) -> bytes:
+    assert pk[0] == b'\x04'
+    if pk[-1] % 2 == 0:
+        return b'\x02' + pk[1:33]
+    else:
+        return b'\x03' + pk[1:33]
+
+
 class TestCryptoSecp256k1(Secp256k1Common, unittest.TestCase):
     def __init__(self):
         self.impl = secp256k1
 
+
+def random_value(n_bits):
+    value = 0
+    while n_bits:
+        bits = min(n_bits, 30)
+        max_value = (1 << bits)
+        value = (value << bits) | random.uniform(max_value)
+        n_bits -= bits
+    return value
+
 class TestCryptoSecp256k1Zkp(Secp256k1Common, unittest.TestCase):
     def __init__(self):
         self.impl = secp256k1_zkp.Context()
+
+    def test_ecdh_compressed(self):
+        for _ in range(100):
+            sk = self.impl.generate_secret()
+            pk = self.impl.publickey(sk)
+            uncompressed = self.impl.multiply(sk, pk, False)
+            compressed = self.impl.multiply(sk, pk, True)
+            self.assertEqual(self.impl.multiply(sk, pk), uncompressed)
+            self.assertEqual(compress_pubkey(uncompressed), compressed)
+
+    def test_blind(self):
+        proof_buffer = secp256k1_zkp.allocate_proof_buffer()
+
+        for n_bits in (1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 63):
+            for _ in range(10):
+                asset = random.bytes(32)
+                asset_blind = random.bytes(32)
+
+                value = max(1, random_value(n_bits))
+                value_blind = random.bytes(32)
+
+                conf_asset = self.impl.blind_generator(asset, asset_blind)
+                conf_value = self.impl.pedersen_commit(value, value_blind, conf_asset)
+
+                extra_commit = random.bytes(25) # would be `script_pubkey`
+                nonce = random.bytes(32)        # would be derived using ECDH
+
+                asset_message = asset + asset_blind
+                range_proof_view = self.impl.rangeproof_sign(
+                    value, conf_value, value_blind, nonce, asset_message, extra_commit,
+                    conf_asset, proof_buffer)
+                assert proof_buffer.startswith(range_proof_view)
+
+                asset_message_buf = proof_buffer  # reuse proof buffer
+                assert len(asset_message_buf) >= 4096
+                result = self.impl.rangeproof_rewind(
+                    conf_value, conf_asset, nonce, range_proof_view, extra_commit,
+                    asset_message_buf)
+                assert result == (value, value_blind)
+                assert asset_message_buf[:len(asset_message)] == asset_message
+
+    def test_surjection_distinct_assets(self):
+        proof_buffer = secp256k1_zkp.allocate_proof_buffer()
+
+        for _ in range(100):
+            input_assets_len = random.uniform(10) + 1
+            output_asset = random.bytes(32)
+            output_asset_blind = random.bytes(32)
+            input_assets = bytearray(random.bytes(32 * input_assets_len))
+            input_assets_blinds = random.bytes(32 * input_assets_len)
+
+            # Choose one of the inputs at random:
+            i = random.uniform(input_assets_len)
+            assert 0 <= i < input_assets_len
+            input_assets[i*32:(i+1)*32] = output_asset
+
+            random_seed32 = random.bytes(32);
+            proof = self.impl.surjection_proof(
+                output_asset, output_asset_blind,
+                input_assets, input_assets_blinds, input_assets_len,
+                random_seed32, proof_buffer)
+
+            output_gen = self.impl.blind_generator(output_asset, output_asset_blind)
+            input_gens = tuple(
+                self.impl.blind_generator(input_assets[i*32:(i+1)*32],
+                                          input_assets_blinds[i*32:(i+1)*32])
+                for i in range(input_assets_len)
+            )
+            self.impl.verify_surjection_proof(proof, output_gen, input_gens)
+
+            bad_output_gen = self.impl.blind_generator(random.bytes(32), output_asset_blind)
+            try:
+                self.impl.verify_surjection_proof(proof, bad_output_gen, input_gens)
+            except ValueError:
+                continue
+            self.fail("Bad proof not detected")
+
+
+    def test_surjection_same_asset(self):
+        proof_buffer = secp256k1_zkp.allocate_proof_buffer()
+
+        for _ in range(100):
+            input_assets_len = random.uniform(10) + 1
+            output_asset = random.bytes(32)
+            output_asset_blind = random.bytes(32)
+            # All input assets are the same as the output asset:
+            input_assets = output_asset * input_assets_len
+            input_assets_blinds = random.bytes(32 * input_assets_len)
+
+            random_seed32 = random.bytes(32);
+            proof = self.impl.surjection_proof(
+                output_asset, output_asset_blind,
+                input_assets, input_assets_blinds, input_assets_len,
+                random_seed32, proof_buffer)
+
+            output_gen = self.impl.blind_generator(output_asset, output_asset_blind)
+            input_gens = tuple(
+                self.impl.blind_generator(input_assets[i*32:(i+1)*32],
+                                          input_assets_blinds[i*32:(i+1)*32])
+                for i in range(input_assets_len)
+            )
+            self.impl.verify_surjection_proof(proof, output_gen, input_gens)
+
+            bad_output_gen = self.impl.blind_generator(random.bytes(32), output_asset_blind)
+            try:
+                self.impl.verify_surjection_proof(proof, bad_output_gen, input_gens)
+            except ValueError:
+                continue
+            self.fail("Bad proof not detected")
+
+
+    def test_balance(self):
+        proof_buffer = secp256k1_zkp.allocate_proof_buffer()
+
+        for _ in range(100):
+            n_inputs = random.uniform(10) + 1
+            n_outputs = random.uniform(10) + 1
+
+            asset = random.bytes(32)
+            input_values = [random_value(40) for _ in range(n_inputs)]
+            output_values = [random_value(40) for _ in range(n_outputs)]
+
+            total_input = sum(input_values)
+            total_output = sum(output_values)
+            if total_input > total_output:
+                output_values.append(total_input - total_output)
+            elif total_input < total_output:
+                input_values.append(total_output - total_input)
+            assert sum(input_values) == sum(output_values)
+
+            n_inputs = len(input_values)
+            input_value_blinds = [random.bytes(32) for _ in range(n_inputs)]
+            input_asset_blinds = [random.bytes(32) for _ in range(n_inputs)]
+
+            n_outputs = len(output_values)
+            output_value_blinds = [random.bytes(32) for _ in range(n_outputs)]
+            output_asset_blinds = [random.bytes(32) for _ in range(n_outputs)]
+
+            values = tuple(input_values + output_values)
+            value_blinds = bytearray(b''.join(input_value_blinds + output_value_blinds))
+            asset_blinds = b''.join(input_asset_blinds + output_asset_blinds)
+
+            self.impl.balance_blinds(values, value_blinds, asset_blinds, n_inputs)
+
+            conf_values = []
+            for i in range(n_inputs + n_outputs):
+                value = values[i]
+                asset_blind = asset_blinds[i*32:(i+1)*32]
+                value_blind = value_blinds[i*32:(i+1)*32]
+                conf_asset = self.impl.blind_generator(asset, asset_blind)
+                conf_value = self.impl.pedersen_commit(value, value_blind, conf_asset)
+                conf_values.append(conf_value)
+
+            self.impl.verify_balance(tuple(conf_values), n_inputs)
+
+            bad_n_inputs = n_inputs + 1
+            try:
+                self.impl.verify_balance(tuple(conf_values), bad_n_inputs)
+            except ValueError:
+                continue
+            self.fail("Unbalanced commitments not detected")
+
 
 if __name__ == '__main__':
     unittest.main()

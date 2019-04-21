@@ -54,8 +54,72 @@ class Context:
         key. Returns public key on success, None if the signature is invalid.
         """
 
-    def multiply(self, secret_key: bytes, public_key: bytes) -> bytes:
+    def multiply(
+        self, secret_key: bytes, public_key: bytes, compressed_result: bool =
+        False
+    ) -> bytes:
         """
         Multiplies point defined by public_key with scalar defined by
-        secret_key. Useful for ECDH.
+        secret_key. Useful for ECDH. The resulting point is serialized in
+        compressed format if `compressed_result` is True.
         """
+
+    def blind_generator(asset: bytes, blinding_factor: bytes) -> bytes:
+        '''
+        Generate blinded generator for the specified confidential asset.
+        '''
+
+    def pedersen_commit(self, value: long, blinding_factor: bytes, gen: bytes)
+    -> bytes:
+        '''
+        Commit to specified integer value, using given 32-byte blinding factor.
+        '''
+
+    def rangeproof_sign(self, value: int, commit: bytes, blind: bytes,
+                        nonce: bytes, message: bytes, extra_commit: bytes,
+                        gen: bytes, proof_buffer: bytearray) -> memoryview:
+        '''
+        Return a range proof for specified value (as a memoryview of the
+        specified bytearray).
+        '''
+
+    def rangeproof_rewind(self, conf_value: bytes, conf_asset: bytes,
+                          nonce: bytes, range_proof: bytes,
+                          extra_commit: bytes, message: bytearray) ->
+                          (value: long, blind: bytes):
+        '''
+        Rewind a range proof to get the value, blinding factor and message.
+        '''
+
+    def surjection_proof(self, output_asset: bytes, output_asset_blind: bytes,
+                         input_assets: bytes, input_assets_blinds: bytes,
+                         input_assets_len: int, random_seed32: bytes,
+                         proof_buffer: bytearray) -> bytes:
+        '''
+        Generate a surjection proof for specified input assets.
+        '''
+
+    def balance_blinds(self, values: Tuple[long], value_blinds: bytearray,
+                       asset_blinds: bytes, num_of_inputs: int):
+        '''
+        Balance value blinds (by updating value_blinds in-place).
+        '''
+
+    def verify_balance(self, commitments: Tuple[bytes], num_of_inputs: int)
+        '''
+        Verify that Pedersen commitments are balanced.
+        '''
+
+    def verify_surjection_proof(
+        self, proof: bytes, output_generator: bytes, input_generators:
+        Tuple[bytes]
+    ) -> bytes:
+        '''
+        Verify a surjection proof for specified blinded assets.
+        '''
+
+    def allocate_proof_buffer() -> bytearray
+        '''
+        Allocate a buffer, large enough for holding a range proof / reduced size
+        surjection proof.
+        '''
