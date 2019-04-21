@@ -2,6 +2,18 @@ from typing import *
 
 
 # extmod/modtrezorcrypto/modtrezorcrypto-secp256k1_zkp.h
+class RangeProofConfig:
+    """
+    Range proof configuration.
+    """
+
+    def __init__(self, min_value: int, exponent: int, bits: int):
+        """
+        Initialize range proof configuration.
+        """
+
+
+# extmod/modtrezorcrypto/modtrezorcrypto-secp256k1_zkp.h
 class Context:
     """
     Owns a secp256k1 context.
@@ -10,12 +22,17 @@ class Context:
 
     def __init__(self) -> None:
         """
-        Allocate and initialize secp256k1_context.
+        Allocate and initialize secp256k1_zkp context object.
         """
 
-    def __del__(self) -> None:
+    def __enter__(self) -> None:
         """
-        Destructor.
+        Allocate and initialize secp256k1_context memory.
+        """
+
+    def __exit__(self, *args) -> None:
+        """
+        Erase and free secp256k1_context memory.
         """
 
     def size(self) -> int:
@@ -54,8 +71,43 @@ class Context:
         key. Returns public key on success, None if the signature is invalid.
         """
 
-    def multiply(self, secret_key: bytes, public_key: bytes) -> bytes:
+    def multiply(
+        self, secret_key: bytes, public_key: bytes, compressed_result: bool =
+        False
+    ) -> bytes:
         """
         Multiplies point defined by public_key with scalar defined by
-        secret_key. Useful for ECDH.
+        secret_key. Useful for ECDH. The resulting point is serialized in
+        compressed format if `compressed_result` is True.
         """
+
+    def blind_generator(asset: bytes, blinding_factor: bytes) -> bytes:
+        '''
+        Generate blinded generator for the specified confidential asset.
+        '''
+
+    def pedersen_commit(self, value: long, blinding_factor: bytes, gen: bytes)
+    -> bytes:
+        '''
+        Commit to specified integer value, using given 32-byte blinding factor.
+        '''
+
+    def balance_blinds(self, values: Tuple[long], value_blinds: bytearray,
+                       asset_blinds: bytes, num_of_inputs: int):
+        '''
+        Balance value blinds (by updating value_blinds in-place).
+        '''
+
+    def verify_balance(self, commitments: Tuple[bytes], num_of_inputs: int)
+        '''
+        Verify that Pedersen commitments are balanced.
+        '''
+
+    def rangeproof_sign(self, config: RangeProofConfig, value: int,
+                        commit: bytes, blind: bytes, nonce: bytes,
+                        message: bytes, extra_commit: bytes,
+                        gen: bytes) -> memoryview:
+        '''
+        Return a range proof for specified value (as a memoryview of the
+        underlying rangeproof_buffer).
+        '''
