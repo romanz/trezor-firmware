@@ -193,3 +193,7 @@ BinanceTransferMsg = 706
 BinanceOrderMsg = 707
 BinanceCancelMsg = 708
 BinanceSignedTx = 709
+LiquidBlindOutput = 801
+LiquidBlindedOutput = 802
+LiquidUnblindOutput = 803
+LiquidUnblindedOutput = 804
