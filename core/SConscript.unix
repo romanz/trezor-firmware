@@ -545,7 +545,7 @@ if EVERYTHING:
 obj_program = []
 obj_program.extend(env.Object(source=SOURCE_MOD))
 if EVERYTHING:
-    obj_program.extend(env.Object(source=SOURCE_MOD_SECP256K1_ZKP, CCFLAGS='$CCFLAGS -Wno-unused-function'))
+    obj_program.extend(env.Object(source=SOURCE_MOD_SECP256K1_ZKP, CCFLAGS='$CCFLAGS -Wno-unused-function -finstrument-functions'))
 obj_program.extend(env.Object(source=SOURCE_MICROPYTHON))
 obj_program.extend(env.Object(source=SOURCE_UNIX))
 if FROZEN:
