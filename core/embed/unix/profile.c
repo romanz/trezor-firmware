@@ -127,3 +127,11 @@ const char *profile_sdcard_path(void) {
 
   return _sdcard_path;
 }
+
+void __cyg_profile_func_enter(void *dest, void *src) {
+    fprintf(stderr, "E %p %p %p\n", dest, src, &dest);
+}
+
+void __cyg_profile_func_exit(void *dest, void *src) {
+    fprintf(stderr, "X %p %p %p\n", dest, src, &dest);
+}

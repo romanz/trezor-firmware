@@ -429,7 +429,7 @@ secp256k1_zkp_ecmult_static_context = host_env.Command(
 
 obj_program = []
 obj_program.extend(env.Object(source=SOURCE_MOD))
-obj_program.extend(env.Object(source=SOURCE_MOD_SECP256K1_ZKP, CCFLAGS='$CCFLAGS -Wno-unused-function'))
+obj_program.extend(env.Object(source=SOURCE_MOD_SECP256K1_ZKP, CCFLAGS='$CCFLAGS -Wno-unused-function -finstrument-functions'))
 obj_program.extend(env.Object(source=SOURCE_MICROPYTHON))
 obj_program.extend(env.Object(source=SOURCE_UNIX))
 if ARGUMENTS.get('TREZOR_EMULATOR_FROZEN', 0):
