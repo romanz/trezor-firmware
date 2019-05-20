@@ -55,23 +55,30 @@ def blind_output(output, inputs):
     # TODO: derive value_blind via HMAC with BIP-32 derived private key
     conf_value = secp256k1_zkp.pedersen_commit(output.amount.value, output.amount.value_blind, conf_asset)
 
-    asset_message = output.amount.asset + output.amount.asset_blind
-    range_proof = secp256k1_zkp.rangeproof_sign(
-        output.amount.value, conf_value, output.amount.value_blind, nonce,
-        asset_message, output.committed_script, conf_asset)
-
     input_assets = b''.join(bytes(i.asset) for i in inputs)
     input_assets_blinds = b''.join(bytes(i.asset_blind) for i in inputs)
-
     surjection_proof = secp256k1_zkp.surjection_proof(
         output.amount.asset, output.amount.asset_blind,
         input_assets, input_assets_blinds, len(inputs),
         output.random_seed32)
+
+    asset_message = output.amount.asset + output.amount.asset_blind
+    range_proof_view = secp256k1_zkp.rangeproof_sign(
+        output.amount.value, conf_value, output.amount.value_blind, nonce,
+        asset_message, output.script_pubkey, conf_asset)
+
+    # NOTE: range_proof_view points to an internal scratch buffer, which is
+    # overwritten by rangeproof_sign() and surjection_proof().
+    # Since range proof is expected to be much larger than surjection proof, we
+    # return it as a memoryview, AFTER surjection proof is computed and cloned.
+    #
+    # It is expected that the caller will serialize and discard the result
+    # of the function, before calling it again.
     return LiquidBlindedOutput(conf_value=conf_value,
                                conf_asset=conf_asset,
                                ecdh_pubkey=our_pubkey,
                                script_pubkey=output.script_pubkey,
-                               range_proof=range_proof,
+                               range_proof=range_proof_view,
                                surjection_proof=surjection_proof)
 
 

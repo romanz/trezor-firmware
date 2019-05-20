@@ -423,10 +423,10 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_3(mod_trezorcrypto_secp256k1_zkp_pedersen_commit_
 STATIC uint8_t g_scratch_buffer[MAX(MAX(
   5134,  // for rangeproof_sign()
   4096), // for rangeproof_rewind()
-  sizeof(secp256k1_surjectionproof))
+  sizeof(secp256k1_surjectionproof))  // for surjection_proof()
 ] = {0};
 
-/// def rangeproof_sign(value: int, commit: bytes, blind: bytes, nonce: bytes, message: bytes, extra_commit: bytes, gen: bytes) -> bytes:
+/// def rangeproof_sign(value: int, commit: bytes, blind: bytes, nonce: bytes, message: bytes, extra_commit: bytes, gen: bytes) -> memoryview:
 ///     '''
 ///     Build a range proof for specified value.
 ///     '''
@@ -496,7 +496,9 @@ STATIC mp_obj_t mod_trezorcrypto_secp256k1_zkp_rangeproof_sign(size_t n_args, co
     ctx, &min_value, &max_value, &commitment, g_scratch_buffer, rangeproof_len, extra_commit.buf, extra_commit.len, &generator)) {
     mp_raise_ValueError("Rangeproof verification failed");
   }
-  return mp_obj_new_bytes(g_scratch_buffer, rangeproof_len);
+
+  // Returns a memoryview to the scratch buffer (must not be overwritten).
+  return mp_obj_new_memoryview('B', rangeproof_len, g_scratch_buffer);
 }
 
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(
@@ -668,9 +670,9 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(
     mod_trezorcrypto_secp256k1_zkp_surjection_proof_obj, 6, 6,
     mod_trezorcrypto_secp256k1_zkp_surjection_proof);
 
-/// def balance_blinds(values: Tuple[long], value_blinds: bytearray, asset_blinds: bytes, num_of_inputs: int) -> bytes:
+/// def balance_blinds(values: Tuple[long], value_blinds: bytearray, asset_blinds: bytes, num_of_inputs: int):
 ///     '''
-///     Commit to specified integer value, using given 32-byte blinding factor.
+///     Balance value blinds (by updating value_blinds in-place).
 ///     '''
 STATIC mp_obj_t mod_trezorcrypto_secp256k1_zkp_balance_blinds(size_t n_args, const mp_obj_t *args) {
   const secp256k1_context *ctx = mod_trezorcrypto_secp256k1_context();

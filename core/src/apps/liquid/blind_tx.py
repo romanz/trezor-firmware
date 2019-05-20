@@ -1,3 +1,5 @@
+import gc
+
 from trezor.crypto.curve import secp256k1_zkp
 from trezor.crypto.hashlib import sha256
 from trezor.messages.MessageType import LiquidBlindTxRequest
@@ -18,5 +20,6 @@ async def blind_tx(ctx, msg, keychain):
         blinded = blind.blind_output(output=msg.outputs[req.output_index],
                                      inputs=msg.inputs)
         req = await ctx.call(blinded, LiquidBlindTxRequest)
+        del blinded  # MUST be discarded before next call to blind_output()
 
     return dummy_ack
