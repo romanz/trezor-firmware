@@ -1,3 +1,6 @@
+import gc, micropython
+
+from trezor import log
 from trezor.crypto.curve import secp256k1_zkp
 from trezor.crypto.hashlib import sha256
 from trezor.messages.LiquidAmount import LiquidAmount
@@ -5,6 +8,18 @@ from trezor.messages.LiquidBlindedOutput import LiquidBlindedOutput
 
 
 BLIND_SIZE = 32  # in bytes
+
+def log_trace(x=None):
+    gc.collect()
+    log.debug(
+        __name__,
+        "Log trace %s, ... F: %s A: %s, S: %s",
+        x,
+        gc.mem_free(),
+        gc.mem_alloc(),
+        micropython.stack_use(),
+    )
+
 
 def balance_blinds(inputs, outputs):
     amounts = inputs + outputs
@@ -45,28 +60,35 @@ def balance_blinds(inputs, outputs):
 
 
 def blind_output(output, inputs):
+    log_trace('blind_output 1')
     peer_pubkey = output.ecdh_pubkey
     our_privkey = output.ecdh_privkey  # TODO: derive via BIP-32
     ecdh_shared = secp256k1_zkp.ecdh(our_privkey, peer_pubkey)
     our_pubkey = secp256k1_zkp.publickey(our_privkey)
     nonce = sha256(ecdh_shared).digest()
 
+    log_trace('blind_output 2')
     conf_asset = secp256k1_zkp.blind_generator(output.amount.asset, output.amount.asset_blind)
     # TODO: derive value_blind via HMAC with BIP-32 derived private key
     conf_value = secp256k1_zkp.pedersen_commit(output.amount.value, output.amount.value_blind, conf_asset)
 
+    log_trace('blind_output 3')
     asset_message = output.amount.asset + output.amount.asset_blind
+    log_trace('blind_output 4')
     range_proof = secp256k1_zkp.rangeproof_sign(
         output.amount.value, conf_value, output.amount.value_blind, nonce,
         asset_message, output.committed_script, conf_asset)
 
+    log_trace('blind_output 5')
     input_assets = b''.join(bytes(i.asset) for i in inputs)
     input_assets_blinds = b''.join(bytes(i.asset_blind) for i in inputs)
 
+    log_trace('blind_output 6')
     surjection_proof = secp256k1_zkp.surjection_proof(
         output.amount.asset, output.amount.asset_blind,
         input_assets, input_assets_blinds, len(inputs),
         output.random_seed32)
+    log_trace('blind_output 7')
     return LiquidBlindedOutput(conf_value=conf_value,
                                conf_asset=conf_asset,
                                ecdh_pubkey=our_pubkey,
