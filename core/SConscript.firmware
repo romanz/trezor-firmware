@@ -8,7 +8,7 @@ CPPDEFINES_MOD = []
 SOURCE_MOD = []
 SOURCE_MOD_SECP256K1_ZKP = []
 
-PYOPT = '1'  # change to 0 for debuglink-enabled build (for device_tests to run)
+PYOPT = '0'  # change to 0 for debuglink-enabled build (for device_tests to run)
 
 # modtrezorconfig
 CPPPATH_MOD += [

@@ -71,10 +71,10 @@ SECTIONS {
 
   .heap : ALIGN(4) {
     . = 37K; /* this acts as a build time assertion that at least this much memory is available for heap use */
-    . = ABSOLUTE(sram_end - 50K); /* this explicitly sets the end of the heap effectively giving the stack at most 50K */
+    . = ABSOLUTE(sram_end - 45K); /* this explicitly sets the end of the heap effectively giving the stack at most 50K */
   } >SRAM
 
   .stack : ALIGN(8) {
-    . = 50K; /* this acts as a build time assertion that at least this much memory is available for stack use */
+    . = 45K; /* this acts as a build time assertion that at least this much memory is available for stack use */
   } >SRAM
 }
