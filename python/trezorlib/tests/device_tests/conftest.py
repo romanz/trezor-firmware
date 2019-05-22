@@ -92,10 +92,9 @@ def setup_client(mnemonic=None, pin="", passphrase=False):
 
 def pytest_configure(config):
     global TREZOR_VERSION
-    TREZOR_VERSION = device_version()
+    TREZOR_VERSION = 2
 
-    if config.getoption("verbose"):
-        log.enable_debug_output()
+    log.enable_debug_output()
 
 
 def pytest_addoption(parser):

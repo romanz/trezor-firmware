@@ -16,17 +16,28 @@
 
 import pytest
 
-from .common import TrezorTest
+from unittest import TestCase
 
 import os
 
+from trezorlib.transport import enumerate_devices, get_transport
 from trezorlib.messages import LiquidAmount, LiquidBlindOutput, LiquidBlindedOutput, LiquidUnblindOutput
 from trezorlib import liquid
-
+from trezorlib.client import TrezorClient
+from trezorlib.ui import ClickUI
 
 @pytest.mark.liquid
 @pytest.mark.skip_t1
-class TestMsgLiquidFixed(TrezorTest):
+class TestMsgLiquidFixed:
+
+    def setup_method(self):
+        device = get_transport()
+        self.client = TrezorClient(transport=device, ui=ClickUI())
+        self.client.open()
+
+    def teardown_method(self, method):
+        self.client.close()
+        self.client = None
 
     INPUT_AMOUNTS = [
         LiquidAmount(value=2099999199946660,
@@ -108,8 +119,6 @@ class TestMsgLiquidFixed(TrezorTest):
     ]
 
     def test_blind(self):
-        self.setup_mnemonic_nopin_nopassphrase()
-
         blinded = liquid.blind_tx(self.client,
                                   inputs=self.INPUT_AMOUNTS,
                                   outputs=self.BLIND_OUTPUTS)
@@ -122,8 +131,6 @@ class TestMsgLiquidFixed(TrezorTest):
                         outputs=(self.EXPLICIT_AMOUNTS + blinded))
 
     def test_unblind(self):
-        self.setup_mnemonic_nopin_nopassphrase()
-
         unblinded_amounts = []
         for i, unblind_output in enumerate(self.UNBLIND_OUTPUTS):
             unblinded = liquid.unblind_output(self.client, unblind_output)
