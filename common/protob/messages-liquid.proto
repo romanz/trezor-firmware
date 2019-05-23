@@ -21,7 +21,7 @@ message LiquidBlindOutput {
     optional LiquidAmount amount = 1;
     optional bytes ecdh_pubkey = 2;         // recipient ECDH pubkey, for ECDH nonce generation
     optional bytes ecdh_privkey = 3;        // our ECDH private key, 32-bytes or None (-> should be derived on-device)
-    optional bytes committed_script = 4;
+    optional bytes script_pubkey = 4;
 
     // Used for surjection proof generation:
     optional bytes random_seed32 = 5;       // for input asset index selection
@@ -35,15 +35,15 @@ message LiquidBlindedOutput {
     optional bytes conf_value = 1;
     optional bytes conf_asset = 2;
     optional bytes ecdh_pubkey = 3;
-    optional bytes range_proof = 4;
-    optional bytes surjection_proof = 5;
+    optional bytes script_pubkey = 4;       // same from LiquidBlindOutput
+    optional bytes range_proof = 5;
+    optional bytes surjection_proof = 6;
 }
 
 
 message LiquidUnblindOutput {
     optional LiquidBlindedOutput blinded = 1;
     optional bytes ecdh_privkey = 2;        // -> should be derived on-device
-    optional bytes committed_script = 3;
 }
 
 message LiquidBalanceBlinds {

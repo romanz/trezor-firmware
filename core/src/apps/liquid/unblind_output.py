@@ -7,5 +7,4 @@ from . import blind
 
 async def unblind_output(ctx, msg, keychain):
     return blind.unblind_output(blinded=msg.blinded,
-                          ecdh_privkey=msg.ecdh_privkey,
-                          committed_script=msg.committed_script)
+                                ecdh_privkey=msg.ecdh_privkey)

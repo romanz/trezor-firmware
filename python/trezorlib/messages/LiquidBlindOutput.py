@@ -12,13 +12,13 @@ class LiquidBlindOutput(p.MessageType):
         amount: LiquidAmount = None,
         ecdh_pubkey: bytes = None,
         ecdh_privkey: bytes = None,
-        committed_script: bytes = None,
+        script_pubkey: bytes = None,
         random_seed32: bytes = None,
     ) -> None:
         self.amount = amount
         self.ecdh_pubkey = ecdh_pubkey
         self.ecdh_privkey = ecdh_privkey
-        self.committed_script = committed_script
+        self.script_pubkey = script_pubkey
         self.random_seed32 = random_seed32
 
     @classmethod
@@ -27,6 +27,6 @@ class LiquidBlindOutput(p.MessageType):
             1: ('amount', LiquidAmount, 0),
             2: ('ecdh_pubkey', p.BytesType, 0),
             3: ('ecdh_privkey', p.BytesType, 0),
-            4: ('committed_script', p.BytesType, 0),
+            4: ('script_pubkey', p.BytesType, 0),
             5: ('random_seed32', p.BytesType, 0),
         }

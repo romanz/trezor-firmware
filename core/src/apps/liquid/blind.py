@@ -70,11 +70,12 @@ def blind_output(output, inputs):
     return LiquidBlindedOutput(conf_value=conf_value,
                                conf_asset=conf_asset,
                                ecdh_pubkey=our_pubkey,
+                               script_pubkey=output.script_pubkey,
                                range_proof=range_proof,
                                surjection_proof=surjection_proof)
 
 
-def unblind_output(blinded, ecdh_privkey, committed_script):
+def unblind_output(blinded, ecdh_privkey):
     peer_pubkey = blinded.ecdh_pubkey
     our_privkey = ecdh_privkey  # TODO: derive via BIP-32
     ecdh_shared = secp256k1_zkp.ecdh(our_privkey, peer_pubkey)
@@ -83,7 +84,7 @@ def unblind_output(blinded, ecdh_privkey, committed_script):
     asset_message_len = 64
     (value, value_blind, asset_message) = secp256k1_zkp.rangeproof_rewind(
         blinded.conf_value, blinded.conf_asset,
-        nonce, blinded.range_proof, committed_script, asset_message_len)
+        nonce, blinded.range_proof, blinded.script_pubkey, asset_message_len)
 
     return LiquidAmount(
         value=value,
