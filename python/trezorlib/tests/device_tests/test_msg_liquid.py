@@ -20,7 +20,10 @@ from .common import TrezorTest
 
 import os
 
-from trezorlib.messages import LiquidAmount, LiquidBlindOutput, LiquidBlindedOutput, LiquidUnblindOutput
+from trezorlib.messages import (
+    LiquidAmount, LiquidBlindOutput, LiquidBlindedOutput, LiquidUnblindOutput,
+    LiquidSignTx, LiquidSignTxInput, LiquidSignTxOutput, LiquidSignedTx
+)
 from trezorlib import liquid
 
 
@@ -141,7 +144,40 @@ class TestMsgLiquidFixed(TrezorTest):
             assert c.conf_value == self.BLINDED_OUTPUTS[i].conf_value
 
 
-# TODO: check output surjection using libsecp256k1
+    def test_sign_tx(self):
+        self.setup_mnemonic_nopin_nopassphrase()
+
+        sign_inputs = [
+            LiquidSignTxInput(prev_hash=bytes.fromhex('159fb98f6c597d8b5cf0dab8f5aee622207f25bc67627c5e5286a1cb9bfe909d'),
+                              prev_index=1,
+                              sequence=0xffffffff,
+                              # -> derive on-device
+                              sign_privkey=bytes.fromhex('50824f821a1c3aed0c0f705745831cfba1fb9cb34bf4f8fca86a22968b2c9f49')),
+        ]
+        sign_outputs = [
+            LiquidSignTxOutput(asset=bytes.fromhex('01230f4f5d4b7c6fa845806ee4f67713459e1b69e8e60fcee2e4940c7a0d5de1b2'),
+                               value=bytes.fromhex('010000000000002710'),
+                               nonce=bytes.fromhex('00'),
+                               script_pubkey=b''),
+            LiquidSignTxOutput(asset=bytes.fromhex('01230f4f5d4b7c6fa845806ee4f67713459e1b69e8e60fcee2e4940c7a0d5de1b2'),
+                               value=bytes.fromhex('010000000029b92700'),
+                               nonce=bytes.fromhex('00'),
+                               script_pubkey=bytes.fromhex('76a914d1655603ad283465e009e8438ca4c6cc251c57c488ac')),
+            LiquidSignTxOutput(asset=bytes.fromhex('0a706c19c4b7698acfb620a8966d5c256b938c100f8e885e57e21e8c3761916853'),
+                               value=bytes.fromhex('0916f3edd39bf22ccb0fd0a88ef58bffdc664c91d1f36b5b362de28be17ef43239'),
+                               nonce=bytes.fromhex('03fab5f773776dfb8b14226ae7b9981757c56c667fda28e90d343786a8fbaa72d1'),
+                               script_pubkey=bytes.fromhex('76a914f24bb0c13089fb711ecf5c133e7df0818e1b1a5988ac')),
+            LiquidSignTxOutput(asset=bytes.fromhex('0a37c228ce75c9d15c9a45b39b837675705eed3f5fcd32681c7bd2b91019f35ede'),
+                               value=bytes.fromhex('08cbb1068fcc876832b14633b9d048a678398abe4a10b0497f8351810a3fa2046e'),
+                               nonce=bytes.fromhex('02b7b6f81ad08e284922d8b0d7bb0f73a35e3fdfe97a91cad787f7bbfb416fa1bd'),
+                               script_pubkey=bytes.fromhex('76a914248036444a09a71e10ff91c8034ba213a179af9d88ac')),
+        ]
+        req = LiquidSignTx(version=2, inputs=sign_inputs, outputs=sign_outputs,
+                           lock_time=0, hash_type=1)
+        resp = liquid.sign_tx(self.client, req)
+        assert resp == LiquidSignedTx(script_sig=[
+            bytes.fromhex('20da528c8edd152d648d833605a465163f6e63374f1ae817b8236635b807bda6cc2c6ece4d40a6d25dd8b2e7b0a229aa7a4fe14c227fbb6ea90dfe98c6e943d04a')
+        ])
 
 # Build by:
 # $ cd vendor/secp256k1-zkp/

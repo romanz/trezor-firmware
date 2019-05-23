@@ -8,4 +8,5 @@ def boot():
     ns = [["secp256k1", HARDENED | 44, HARDENED | 1776]]
     wire.add(MessageType.LiquidBlindTx, __name__, "blind_tx", ns)
     wire.add(MessageType.LiquidUnblindOutput, __name__, "unblind_output", ns)
+    wire.add(MessageType.LiquidSignTx, __name__, "sign_tx", ns)  # WIP - NOT SAFE!!!
 

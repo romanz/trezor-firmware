@@ -111,6 +111,10 @@ from .LiquidBlindOutput import LiquidBlindOutput
 from .LiquidBlindTx import LiquidBlindTx
 from .LiquidBlindTxRequest import LiquidBlindTxRequest
 from .LiquidBlindedOutput import LiquidBlindedOutput
+from .LiquidSignTx import LiquidSignTx
+from .LiquidSignTxInput import LiquidSignTxInput
+from .LiquidSignTxOutput import LiquidSignTxOutput
+from .LiquidSignedTx import LiquidSignedTx
 from .LiquidUnblindOutput import LiquidUnblindOutput
 from .LiskAddress import LiskAddress
 from .LiskDelegateType import LiskDelegateType
