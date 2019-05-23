@@ -1,5 +1,3 @@
-import gc
-
 from trezor.crypto.curve import secp256k1_zkp
 from trezor.crypto.hashlib import sha256
 from trezor.messages.MessageType import LiquidBlindTxRequest
