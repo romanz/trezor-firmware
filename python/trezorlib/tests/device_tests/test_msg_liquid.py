@@ -16,11 +16,15 @@
 
 import pytest
 
-from .common import TrezorTest
+from .common import TrezorTest, conftest
 
 import os
 
-from trezorlib.messages import LiquidAmount, LiquidBlindOutput, LiquidBlindedOutput, LiquidUnblindOutput
+from trezorlib.messages import (
+    LiquidAmount, LiquidBlindOutput, LiquidBlindedOutput, LiquidUnblindOutput,
+    LiquidSignTx, LiquidSignTxInput, LiquidSignTxOutput, LiquidSignedTx,
+    LiquidSignature
+)
 from trezorlib import liquid
 
 
@@ -107,9 +111,12 @@ class TestMsgLiquidFixed(TrezorTest):
         ),
     ]
 
-    def test_blind(self):
-        self.setup_mnemonic_nopin_nopassphrase()
+    def setup_method(self, method):
+        self.client = conftest.get_device()
+        # skip device.wipe() for now
+        self.client.open()
 
+    def test_blind(self):
         blinded = liquid.blind_tx(self.client,
                                   inputs=self.INPUT_AMOUNTS,
                                   outputs=self.BLIND_OUTPUTS)
@@ -122,8 +129,6 @@ class TestMsgLiquidFixed(TrezorTest):
                         outputs=(self.EXPLICIT_AMOUNTS + blinded))
 
     def test_unblind(self):
-        self.setup_mnemonic_nopin_nopassphrase()
-
         unblinded_amounts = []
         for i, unblind_output in enumerate(self.UNBLIND_OUTPUTS):
             unblinded = liquid.unblind_output(self.client, unblind_output)
@@ -141,7 +146,41 @@ class TestMsgLiquidFixed(TrezorTest):
             assert c.conf_value == self.BLINDED_OUTPUTS[i].conf_value
 
 
-# TODO: check output surjection using libsecp256k1
+    def test_sign_tx(self):
+        sign_inputs = [
+            LiquidSignTxInput(prev_hash=bytes.fromhex('110a761d119f0919c3c60e223a477948c6c6c4a020a46b818fa05a53201e11bf'),
+                              prev_index=1,
+                              sequence=0xfffffffd,
+                              issuance=b'',
+                              value=bytes.fromhex('08178bd3991e333107346f26b52a27f441b43b70f45e8f8cdf20df59897cfc077b'),
+
+                              script_code=bytes.fromhex('76a914ec1d316f5b03870be2dda1df3c15876c414c958988ac'),  # -> derive on-device
+                              sign_privkey=bytes.fromhex('aa902fc9df6a07f330dcbb2d303544a91e58d88a5d1760599b4b72719d240e22')),  # -> derive on-device
+        ]
+        sign_outputs = [
+            LiquidSignTxOutput(asset=bytes.fromhex('0a85e434f59be44088e971c1e732c646e3acf6201d4306087e2745eec2d69c4714'),
+                               value=bytes.fromhex('0880b90389f41f30152a8c6478dbebcb174f0040af3c2ada1d3bb18e3e9d4e5a8a'),
+                               nonce=bytes.fromhex('02ebbcfb668fcfbf91d8c505236dbfb28a24baf7fef42138f4109d47912b9f7f19'),
+                               script_pubkey=bytes.fromhex('a914568171b717ea909b9d64bf6c96bf77d4be47ec6887')),
+            LiquidSignTxOutput(asset=bytes.fromhex('0ab6f751be3ba9b69fcd94907a41c24d2700b910a3292deeb91ca17dd0a851d112'),
+                               value=bytes.fromhex('091d571f498f3865ef359b8ab6d9133d5152d8db0087c3bee995b7c56fcff3496e'),
+                               nonce=bytes.fromhex('0225765310adc82c37c9552815a5cbc8f2a4e200c32be579167d953a5ff187edc3'),
+                               script_pubkey=bytes.fromhex('a914092edbd0a602e8464ce37b97b74a0151f01ab57a87')),
+            LiquidSignTxOutput(asset=bytes.fromhex('01230f4f5d4b7c6fa845806ee4f67713459e1b69e8e60fcee2e4940c7a0d5de1b2'),
+                               value=bytes.fromhex('01000000000000aa50'),
+                               nonce=bytes.fromhex('00'),
+                               script_pubkey=bytes.fromhex('')),
+        ]
+        req = LiquidSignTx(version=2, inputs=sign_inputs, outputs=sign_outputs, lock_time=303, hash_type=1)
+        res = liquid.sign_tx(self.client, req)
+        sigs = [
+            LiquidSignature(digest=bytes.fromhex('dbcdc4287f3ffeaf33dfe8d7238383502bbafd702d3b41b92fdc47e83982ff0c'),
+                            sigder=bytes.fromhex('30440220292cf66c5ea9e7efb39a396f90ad6b638adc3e34e68f8af2ede74f6fb7cf76bf02203610c1040f380f226619d059cdc64e4f74d5b7b19ff36ef3e1072df29caa91e0'),
+                            pubkey=bytes.fromhex('02d1fc4a3a9c00e1b17b9f4af071aa8331e97218d96a44ed0069c224a054fd85cc'))
+        ]
+        assert res == LiquidSignedTx(sigs=sigs)
+        for sig in res.sigs:
+            ecdsa_verify(sig)
 
 # Build by:
 # $ cd vendor/secp256k1-zkp/
@@ -160,6 +199,18 @@ from . import secp256k1_zkp as lib
 import ctypes
 
 ctx = lib.secp256k1_blind_context
+
+
+def ecdsa_verify(sig):
+    # Parse serialized public key
+    pubkey = ctypes.create_string_buffer(64)
+    assert lib.secp256k1.secp256k1_ec_pubkey_parse(ctx, pubkey, sig.pubkey, len(sig.pubkey)) == 1
+    # Parse DER-serialized ECDSA signature
+    rawsig = ctypes.create_string_buffer(64)
+    assert lib.secp256k1.secp256k1_ecdsa_signature_parse_der(ctx, rawsig, sig.sigder, len(sig.sigder)) == 1
+    # Verify ECDSA signature on given digest
+    assert lib.secp256k1.secp256k1_ecdsa_verify(ctx, rawsig, sig.digest, pubkey) == 1
+
 
 def _verify_range_proof(blinded_output):
     conf_value = ctypes.create_string_buffer(lib.SECP256K1_PEDERSEN_COMMITMENT_SIZE)

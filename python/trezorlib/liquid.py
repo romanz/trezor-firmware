@@ -16,3 +16,9 @@ def blind_tx(client, inputs, outputs):
 @expect(messages.LiquidAmount)
 def unblind_output(client, unblind):
     return client.call(unblind)
+
+
+@expect(messages.LiquidSignedTx)
+def sign_tx(client, request):
+    assert isinstance(request, messages.LiquidSignTx)
+    return client.call(request)

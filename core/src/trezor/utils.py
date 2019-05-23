@@ -78,25 +78,37 @@ def format_ordinal(number):
     )
 
 
+from ubinascii import hexlify
+
 class HashWriter:
     def __init__(self, ctx):
         self.ctx = ctx
         self.buf = bytearray(1)  # used in append()
+        self.out = b''
 
     def extend(self, buf: bytearray):
+        # print(hexlify(buf))
         self.ctx.update(buf)
+        self.out += buf
 
     def write(self, buf: bytearray):  # alias for extend()
+        # print(hexlify(buf))
         self.ctx.update(buf)
+        self.out += buf
 
     async def awrite(self, buf: bytearray):  # AsyncWriter interface
+        # print(hexlify(buf))
         return self.ctx.update(buf)
+        self.out += buf
 
     def append(self, b: int):
         self.buf[0] = b
+        # print(hexlify(self.buf))
         self.ctx.update(self.buf)
+        self.out += self.buf
 
     def get_digest(self) -> bytes:
+        # print(hexlify(self.out))
         return self.ctx.digest()
 
 
