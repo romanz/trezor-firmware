@@ -113,7 +113,6 @@ class TestMsgLiquidFixed(TrezorTest):
 
     def setup_method(self, method):
         self.client = conftest.get_device()
-        # skip device.wipe() for now
         self.client.open()
 
     def test_blind(self):
@@ -146,9 +145,9 @@ class TestMsgLiquidFixed(TrezorTest):
             assert c.conf_value == self.BLINDED_OUTPUTS[i].conf_value
 
 
-    def test_sign_tx(self):
+    def test_sign_tx0(self):
         sign_inputs = [
-            LiquidSignTxInput(prev_hash=bytes.fromhex('110a761d119f0919c3c60e223a477948c6c6c4a020a46b818fa05a53201e11bf'),
+            LiquidSignTxInput(prev_hash=bytes.fromhex('110a761d119f0919c3c60e223a477948c6c6c4a020a46b818fa05a53201e11bf'),  # hashes are flipped
                               prev_index=1,
                               sequence=0xfffffffd,
                               issuance=b'',
@@ -181,6 +180,85 @@ class TestMsgLiquidFixed(TrezorTest):
         assert res == LiquidSignedTx(sigs=sigs)
         for sig in res.sigs:
             ecdsa_verify(sig)
+
+    def test_sign_tx1(self):
+        sign_inputs = [
+            LiquidSignTxInput(prev_hash=bytes.fromhex('02b70027b7fc2494652b80cbd499e8c54b0ab73ba01a3cdc24f2cb28321da803'),  # hashes are flipped
+                              prev_index=1,
+                              sequence=0xfffffffd,
+                              issuance=b'',
+                              value=bytes.fromhex('091d571f498f3865ef359b8ab6d9133d5152d8db0087c3bee995b7c56fcff3496e'),
+
+                              script_code=bytes.fromhex('76a9142e6bd915909ecaa1ffad8614af968738ab1adec288ac'),  # -> derive on-device
+                              sign_privkey=bytes.fromhex('a342e7d43b89599e0e3ddc9a9997b54c04b75da31ca205482f3e1a748bd4efeb')),  # -> derive on-device
+        ]
+        sign_outputs = [
+            LiquidSignTxOutput(asset=bytes.fromhex('0af1fe78b01c3409b2cd52681b11189595fce605b674ed9c49732418380cfc4a47'),
+                               value=bytes.fromhex('08eea803cd80bf0a5a2c6386d731a15477f791023b97cfd87c56c6350fca426c0a'),
+                               nonce=bytes.fromhex('0267d70a2c4880f7dc84cd76de693752042454f3ee69e12ba5c0c1b73ded93e18d'),
+                               script_pubkey=bytes.fromhex('a914bd815206a63f29164f577730dc52976343ffd8d287')),
+            LiquidSignTxOutput(asset=bytes.fromhex('0ba8f14fd5c3e62d08a7b7512796c6102342add2b57c68753737cd9748177c611e'),
+                               value=bytes.fromhex('08519f87b451769f124f004bbd8a3dac348bcd580aacc651894f28ea319d7af2b5'),
+                               nonce=bytes.fromhex('029ab053a60185ae8a37730bf2699800b2f43b40381150d28e1d159cb5e90850ea'),
+                               script_pubkey=bytes.fromhex('a91483ad25a9f0695ecf65b5d79cdba92148d953607487')),
+            LiquidSignTxOutput(asset=bytes.fromhex('01230f4f5d4b7c6fa845806ee4f67713459e1b69e8e60fcee2e4940c7a0d5de1b2'),
+                               value=bytes.fromhex('01000000000000aa50'),
+                               nonce=bytes.fromhex('00'),
+                               script_pubkey=bytes.fromhex('')),
+        ]
+        req = LiquidSignTx(version=2, inputs=sign_inputs, outputs=sign_outputs, lock_time=303, hash_type=1)
+        res = liquid.sign_tx(self.client, req)
+        sigs = [
+            LiquidSignature(digest=bytes.fromhex('7408aa85dff1581f073098ebeb5224406ab350aac06495de03d088eb78611ecc'),
+                            sigder=bytes.fromhex('3044022065bde201513cacead734d35d8855fdfe7f22d8a2c9eb719be1175c99f45a63d802203ac0e10b02b2c3b6a82aed8b7511aeaa070bf01e6f7acbfa93117a8b6e175fef'),
+                            pubkey=bytes.fromhex('037b589b719a65f1816f097d33ad98d5607797582f70ca0cd980fbadb0dfe61871'))
+        ]
+        assert res == LiquidSignedTx(sigs=sigs)
+        for sig in res.sigs:
+            ecdsa_verify(sig)
+
+    def test_sign_tx2(self):
+        sign_inputs = [
+            LiquidSignTxInput(prev_hash=bytes.fromhex('d63a1bb20ffdd7e23ae090046f841c16cd0f5cf36fb8ffa24084691132a02b39'),  # hashes are flipped
+                              prev_index=0,
+                              sequence=0xfffffffd,
+                              issuance=b'',
+                              value=bytes.fromhex('09dbd3c2d1d6001b66a4d1778386dee6f39e2c176094b7cdca362db5c614e89216'),
+                              script_code=bytes.fromhex('76a914feabe6b91b7e9fcb363b66419c00ecf59e645d7888ac'),  # -> derive on-device
+                              sign_privkey=bytes.fromhex('da09229611e33e718df2d6a2befa12c8e529e9e909909a2bd2c24f5ede10672d')),  # -> derive on-device
+            LiquidSignTxInput(prev_hash=bytes.fromhex('d63a1bb20ffdd7e23ae090046f841c16cd0f5cf36fb8ffa24084691132a02b39'),  # hashes are flipped
+                              prev_index=1,
+                              sequence=0xfffffffd,
+                              issuance=b'',
+                              value=bytes.fromhex('082daed0e26c235ef20c09f64a27d4c8cc762bab3e90425bfe53b896980f106d8a'),
+                              script_code=bytes.fromhex('76a9144a62105055e5f2c32d90e9fd2c4828cdd6801e7788ac'),  # -> derive on-device
+                              sign_privkey=bytes.fromhex('9cb24675d0963cb41a5041cbf858e7ffcc527cf1945820a324b948550cd3e478')),  # -> derive on-device
+        ]
+        sign_outputs = [
+            LiquidSignTxOutput(asset=bytes.fromhex('0b5ee2d002ea476d5317f3267fbebb13e23e2ea9cadea87841446d9a90e3ccb496'),
+                               value=bytes.fromhex('09b25a808ca706b7bcbd32f081164c31c8c43746107b3e9c420001a3ab5055f295'),
+                               nonce=bytes.fromhex('022e246109bcb9e002e36d0a73bfcc7ef8bb61d25d905f3978138372a409cbfe56'),
+                               script_pubkey=bytes.fromhex('a91473d9f201f92b7af14a66e3fbfeeb9537bb16a95e87')),
+            LiquidSignTxOutput(asset=bytes.fromhex('0b272182163c39303b62a603991e895eaa9264fb3471f418bf7af869b42f56e705'),
+                               value=bytes.fromhex('09fe0e7c4ea58acd328da2173d70cd69d1e260858259eab31399dd8990e1c13d75'),
+                               nonce=bytes.fromhex('02ba034a3bf2af12b2c32855fdce6c2866ae6ab2d483e2243905e62055d41af468'),
+                               script_pubkey=bytes.fromhex('a9145d33c9c0601ed9f1fd20cff9d50158dedc8fd51f87')),
+            LiquidSignTxOutput(asset=bytes.fromhex('01230f4f5d4b7c6fa845806ee4f67713459e1b69e8e60fcee2e4940c7a0d5de1b2'),
+                               value=bytes.fromhex('010000000000009aec'),
+                               nonce=bytes.fromhex('00'),
+                               script_pubkey=bytes.fromhex('')),
+        ]
+        req = LiquidSignTx(version=2, inputs=sign_inputs, outputs=sign_outputs, lock_time=304, hash_type=1)
+        res = liquid.sign_tx(self.client, req)
+        for sig in res.sigs:
+            ecdsa_verify(sig)
+
+        # NOTE: signatures doesn't match because low-R enforcement by Elements (https://github.com/bitcoin/bitcoin/pull/13666).
+        assert [sig.digest for sig in res.sigs] == [
+            bytes.fromhex('3c1086d7b14a39ebd092de0c3e8d7cd059c43d19b43655d539964016a8cf2505'),
+            bytes.fromhex('ab40b80b3b3fbb5632f35cc84bf4a485ed162dc18bd68747486f5ee36b7c064d'),
+        ]
+
 
 # Build by:
 # $ cd vendor/secp256k1-zkp/
