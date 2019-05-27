@@ -27,6 +27,7 @@ class CoinInfo:
         bip115: bool,
         decred: bool,
         curve_name: str,
+        blinded_address_type: int,
     ):
         self.coin_name = coin_name
         self.coin_shortcut = coin_shortcut
@@ -46,6 +47,7 @@ class CoinInfo:
         self.bip115 = bip115
         self.decred = decred
         self.curve_name = curve_name
+        self.blinded_address_type = blinded_address_type
         if curve_name == "secp256k1-groestl":
             self.b58_hash = groestl512d_32
             self.sign_hash_double = False
@@ -93,6 +95,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Testnet":
         return CoinInfo(
@@ -114,6 +117,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Actinium":
         return CoinInfo(
@@ -135,6 +139,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Axe":
         return CoinInfo(
@@ -156,6 +161,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Bellcoin":
         return CoinInfo(
@@ -177,6 +183,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "BitCash":
         return CoinInfo(
@@ -198,6 +205,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "BitZeny":
         return CoinInfo(
@@ -219,6 +227,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Bitcloud":
         return CoinInfo(
@@ -240,6 +249,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Bcash":
         return CoinInfo(
@@ -261,6 +271,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Bcash Testnet":
         return CoinInfo(
@@ -282,6 +293,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Bgold":
         return CoinInfo(
@@ -303,6 +315,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Bgold Testnet":
         return CoinInfo(
@@ -324,6 +337,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Bprivate":
         return CoinInfo(
@@ -345,6 +359,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Brhodium":
         return CoinInfo(
@@ -366,6 +381,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Bitcore":
         return CoinInfo(
@@ -387,6 +403,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Bitsend":
         return CoinInfo(
@@ -408,6 +425,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "BlockStamp":
         return CoinInfo(
@@ -429,6 +447,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Capricoin":
         return CoinInfo(
@@ -450,6 +469,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Dash":
         return CoinInfo(
@@ -471,6 +491,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Dash Testnet":
         return CoinInfo(
@@ -492,6 +513,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Decred":
         return CoinInfo(
@@ -513,6 +535,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=True,
             curve_name='secp256k1-decred',
+            blinded_address_type=None,
         )
     elif name == "Decred Testnet":
         return CoinInfo(
@@ -534,6 +557,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=True,
             curve_name='secp256k1-decred',
+            blinded_address_type=None,
         )
     elif name == "Denarius":
         return CoinInfo(
@@ -555,6 +579,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "DigiByte":
         return CoinInfo(
@@ -576,6 +601,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Dogecoin":
         return CoinInfo(
@@ -597,6 +623,29 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
+        )
+    elif name == "Elements":
+        return CoinInfo(
+            coin_name=name,
+            coin_shortcut="ELEMENTS",
+            address_type=235,
+            address_type_p2sh=75,
+            maxfee_kb=10000000,
+            signed_message_header="Bitcoin Signed Message:\n",
+            xpub_magic=0x043587cf,
+            xpub_magic_segwit_p2sh=0x044a5262,
+            xpub_magic_segwit_native=0x045f1cf6,
+            bech32_prefix="ert",
+            cashaddr_prefix=None,
+            slip44=1,
+            segwit=True,
+            fork_id=None,
+            force_bip143=False,
+            bip115=False,
+            decred=False,
+            curve_name='secp256k1',
+            blinded_address_type=4,
         )
     elif name == "FairCoin":
         return CoinInfo(
@@ -618,6 +667,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Feathercoin":
         return CoinInfo(
@@ -639,6 +689,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Florincoin":
         return CoinInfo(
@@ -660,6 +711,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Fujicoin":
         return CoinInfo(
@@ -681,6 +733,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Gincoin":
         return CoinInfo(
@@ -702,6 +755,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "GameCredits":
         return CoinInfo(
@@ -723,6 +777,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Groestlcoin":
         return CoinInfo(
@@ -744,6 +799,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1-groestl',
+            blinded_address_type=None,
         )
     elif name == "Groestlcoin Testnet":
         return CoinInfo(
@@ -765,6 +821,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1-groestl',
+            blinded_address_type=None,
         )
     elif name == "Horizen":
         return CoinInfo(
@@ -786,6 +843,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=True,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Komodo":
         return CoinInfo(
@@ -807,6 +865,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Koto":
         return CoinInfo(
@@ -828,6 +887,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Litecoin":
         return CoinInfo(
@@ -849,6 +909,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Litecoin Testnet":
         return CoinInfo(
@@ -870,6 +931,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Megacoin":
         return CoinInfo(
@@ -891,6 +953,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Monacoin":
         return CoinInfo(
@@ -912,6 +975,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "MonetaryUnit":
         return CoinInfo(
@@ -933,6 +997,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Myriad":
         return CoinInfo(
@@ -954,6 +1019,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "NIX":
         return CoinInfo(
@@ -975,6 +1041,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Namecoin":
         return CoinInfo(
@@ -996,6 +1063,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "PIVX":
         return CoinInfo(
@@ -1017,6 +1085,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "PIVX Testnet":
         return CoinInfo(
@@ -1038,6 +1107,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Pesetacoin":
         return CoinInfo(
@@ -1059,6 +1129,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Polis":
         return CoinInfo(
@@ -1080,6 +1151,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Primecoin":
         return CoinInfo(
@@ -1101,6 +1173,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Qtum":
         return CoinInfo(
@@ -1122,6 +1195,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Qtum Testnet":
         return CoinInfo(
@@ -1143,6 +1217,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Ravencoin":
         return CoinInfo(
@@ -1164,6 +1239,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Regtest":
         return CoinInfo(
@@ -1185,6 +1261,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Ritocoin":
         return CoinInfo(
@@ -1206,6 +1283,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "SmartCash":
         return CoinInfo(
@@ -1227,6 +1305,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1-smart',
+            blinded_address_type=None,
         )
     elif name == "SmartCash Testnet":
         return CoinInfo(
@@ -1248,6 +1327,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1-smart',
+            blinded_address_type=None,
         )
     elif name == "Stakenet":
         return CoinInfo(
@@ -1269,6 +1349,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "VIPSTARCOIN":
         return CoinInfo(
@@ -1290,6 +1371,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Vertcoin":
         return CoinInfo(
@@ -1311,6 +1393,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Viacoin":
         return CoinInfo(
@@ -1332,6 +1415,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "ZClassic":
         return CoinInfo(
@@ -1353,6 +1437,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Zcash":
         return CoinInfo(
@@ -1374,6 +1459,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Zcash Testnet":
         return CoinInfo(
@@ -1395,6 +1481,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Zcoin":
         return CoinInfo(
@@ -1416,6 +1503,7 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     elif name == "Zcoin Testnet":
         return CoinInfo(
@@ -1437,5 +1525,6 @@ def by_name(name: str) -> CoinInfo:
             bip115=False,
             decred=False,
             curve_name='secp256k1',
+            blinded_address_type=None,
         )
     raise ValueError('Unknown coin name "%s"' % name)

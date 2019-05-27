@@ -38,5 +38,6 @@
   "bitcore": [],
   "blockbook": [],
   "cooldown": 1000,
-  "consensus_branch_id": null
+  "consensus_branch_id": null,
+  "blinded_address_type": null
 }
