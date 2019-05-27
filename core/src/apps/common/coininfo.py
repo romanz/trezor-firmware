@@ -598,6 +598,27 @@ def by_name(name: str) -> CoinInfo:
             decred=False,
             curve_name='secp256k1',
         )
+    elif name == "Elements":
+        return CoinInfo(
+            coin_name=name,
+            coin_shortcut="ELEMENTS",
+            address_type=235,
+            address_type_p2sh=75,
+            maxfee_kb=10000000,
+            signed_message_header="Bitcoin Signed Message:\n",
+            xpub_magic=0x043587cf,
+            xpub_magic_segwit_p2sh=0x044a5262,
+            xpub_magic_segwit_native=0x045f1cf6,
+            bech32_prefix="ert",
+            cashaddr_prefix=None,
+            slip44=1,
+            segwit=True,
+            fork_id=None,
+            force_bip143=False,
+            bip115=False,
+            decred=False,
+            curve_name='secp256k1',
+        )
     elif name == "FairCoin":
         return CoinInfo(
             coin_name=name,
