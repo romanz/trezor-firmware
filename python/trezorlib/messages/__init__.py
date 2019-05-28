@@ -38,6 +38,7 @@ from .CosiCommit import CosiCommit
 from .CosiCommitment import CosiCommitment
 from .CosiSign import CosiSign
 from .CosiSignature import CosiSignature
+from .DebugLinkAllocateHeap import DebugLinkAllocateHeap
 from .DebugLinkDecision import DebugLinkDecision
 from .DebugLinkFlashErase import DebugLinkFlashErase
 from .DebugLinkGetState import DebugLinkGetState

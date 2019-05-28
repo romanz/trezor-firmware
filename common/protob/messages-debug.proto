@@ -103,3 +103,14 @@ message DebugLinkMemoryWrite {
 message DebugLinkFlashErase {
     optional uint32 sector = 1;
 }
+
+
+/**
+ * Request: Try to allocate buffers with specific sizes on the heap.
+ * @start
+ * @next Success
+ * @next Failure
+ */
+message DebugLinkAllocateHeap {
+    repeated uint32 sizes = 1;
+}

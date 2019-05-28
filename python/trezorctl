@@ -775,6 +775,13 @@ def self_test(connect):
     return debuglink.self_test(connect())
 
 
+@cli.command(help="Try to allocate several buffers on heap.")
+@click.argument("buffer_size", type=int, nargs=-1)
+@click.pass_obj
+def try_allocate_heap(connect, buffer_size):
+    return debuglink.try_allocate_heap(connect(), buffer_size)
+
+
 @cli.command()
 def usb_reset():
     """Perform USB reset on a stuck device.

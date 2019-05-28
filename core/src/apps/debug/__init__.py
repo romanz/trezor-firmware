@@ -4,7 +4,7 @@ if not __debug__:
     halt("debug mode inactive")
 
 if __debug__:
-    from trezor import config, loop, utils
+    from trezor import config, loop, utils, wire
     from trezor.messages import MessageType
     from trezor.wire import register, protobuf_workflow
 
@@ -39,6 +39,24 @@ if __debug__:
             m.reset_word = " ".join(reset_current_words)
         return m
 
+    async def dispatch_DebugLinkAllocateHeap(ctx, msg):
+        from trezor.messages.Success import Success
+        import gc
+        gc.collect()
+        mem_free = gc.mem_free()
+        mem_alloc = gc.mem_alloc()
+
+        buffers = []
+        for i, size in enumerate(msg.sizes):
+            try:
+                buffers.append(bytearray(size))
+            except MemoryError as e:
+                raise wire.ProcessError('Failed allocating {}B (#{})'.format(size, i))
+
+        total_size = sum(len(b) for b in buffers)
+        del buffers
+        return Success('Allocated {}B (starting with {}B free, {}B allocated)'.format(total_size, mem_free, mem_alloc))
+
     def boot():
         # wipe storage when debug build is used on real hardware
         if not utils.EMULATOR:
@@ -49,4 +67,7 @@ if __debug__:
         )
         register(
             MessageType.DebugLinkGetState, protobuf_workflow, dispatch_DebugLinkGetState
+        )
+        register(
+            MessageType.DebugLinkAllocateHeap, protobuf_workflow, dispatch_DebugLinkAllocateHeap
         )

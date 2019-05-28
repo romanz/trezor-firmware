@@ -503,3 +503,12 @@ def self_test(client):
             payload=b"\x00\xFF\x55\xAA\x66\x99\x33\xCCABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!\x00\xFF\x55\xAA\x66\x99\x33\xCC"
         )
     )
+
+
+@expect(proto.Success, field="message")
+def try_allocate_heap(client, sizes):
+    return client.call(
+        proto.DebugLinkAllocateHeap(
+            sizes=sizes
+        )
+    )

@@ -60,6 +60,7 @@ DebugLinkGetState = 101
 DebugLinkState = 102
 DebugLinkStop = 103
 DebugLinkLog = 104
+DebugLinkAllocateHeap = 109
 DebugLinkMemoryRead = 110
 DebugLinkMemory = 111
 DebugLinkMemoryWrite = 112

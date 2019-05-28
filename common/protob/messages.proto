@@ -98,6 +98,7 @@ enum MessageType {
     MessageType_DebugLinkState = 102 [(wire_debug_out) = true];
     MessageType_DebugLinkStop = 103 [(wire_debug_in) = true];
     MessageType_DebugLinkLog = 104 [(wire_debug_out) = true];
+    MessageType_DebugLinkAllocateHeap = 109 [(wire_debug_in) = true];
     MessageType_DebugLinkMemoryRead = 110 [(wire_debug_in) = true];
     MessageType_DebugLinkMemory = 111 [(wire_debug_out) = true];
     MessageType_DebugLinkMemoryWrite = 112 [(wire_debug_in) = true];
