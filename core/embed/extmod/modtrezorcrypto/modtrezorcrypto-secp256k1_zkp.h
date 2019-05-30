@@ -650,11 +650,6 @@ STATIC mp_obj_t mod_trezorcrypto_secp256k1_zkp_surjection_proof(size_t n_args, c
     input_index, input_asset_blind, output_asset_blind.buf)) {
     mp_raise_ValueError("Surjection proof generation failed");
   }
-
-  // Sanity check before returning the result
-  if (!secp256k1_surjectionproof_verify(ctx, proof, input_generators, input_assets_len, &output_generator)) {
-    mp_raise_ValueError("Surjection proof verification failed");
-  }
   m_del(secp256k1_generator, input_generators, input_assets_len);
   input_generators = NULL;
 
