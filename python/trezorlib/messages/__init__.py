@@ -110,7 +110,14 @@ from .LiquidBalanceBlinds import LiquidBalanceBlinds
 from .LiquidBlindOutput import LiquidBlindOutput
 from .LiquidBlindTx import LiquidBlindTx
 from .LiquidBlindTxRequest import LiquidBlindTxRequest
+from .LiquidBlindedAddress import LiquidBlindedAddress
 from .LiquidBlindedOutput import LiquidBlindedOutput
+from .LiquidGetBlindedAddress import LiquidGetBlindedAddress
+from .LiquidSignTx import LiquidSignTx
+from .LiquidSignTxInput import LiquidSignTxInput
+from .LiquidSignTxOutput import LiquidSignTxOutput
+from .LiquidSignature import LiquidSignature
+from .LiquidSignedTx import LiquidSignedTx
 from .LiquidUnblindOutput import LiquidUnblindOutput
 from .LiskAddress import LiskAddress
 from .LiskDelegateType import LiskDelegateType

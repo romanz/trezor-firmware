@@ -182,3 +182,6 @@ LiquidBlindTxRequest = 802
 LiquidBlindedOutput = 803
 LiquidUnblindOutput = 804
 LiquidAmount = 805
+LiquidGetBlindedAddress = 806
+LiquidSignTx = 807
+LiquidSignedTx = 808
