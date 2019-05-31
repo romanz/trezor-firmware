@@ -13,6 +13,7 @@ import apps.homescreen
 import apps.management
 import apps.wallet
 import apps.ethereum
+import apps.liquid
 import apps.lisk
 import apps.monero
 import apps.nem
@@ -32,6 +33,7 @@ apps.homescreen.boot()
 apps.management.boot()
 apps.wallet.boot()
 apps.ethereum.boot()
+apps.liquid.boot()
 apps.lisk.boot()
 apps.monero.boot()
 apps.nem.boot()

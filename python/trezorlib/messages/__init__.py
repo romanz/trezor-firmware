@@ -105,6 +105,7 @@ from .HDNodePathType import HDNodePathType
 from .HDNodeType import HDNodeType
 from .IdentityType import IdentityType
 from .Initialize import Initialize
+from .LiquidGetBlindedAddress import LiquidGetBlindedAddress
 from .LiskAddress import LiskAddress
 from .LiskDelegateType import LiskDelegateType
 from .LiskGetAddress import LiskGetAddress

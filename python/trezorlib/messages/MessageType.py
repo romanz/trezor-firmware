@@ -177,3 +177,4 @@ BinanceTransferMsg = 706
 BinanceOrderMsg = 707
 BinanceCancelMsg = 708
 BinanceSignedTx = 709
+LiquidGetBlindedAddress = 801

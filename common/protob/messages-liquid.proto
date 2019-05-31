@@ -1,0 +1,21 @@
+syntax = "proto2";
+package hw.trezor.messages.liquid;
+
+// Sugar for easier handling in Java
+option java_package = "com.satoshilabs.trezor.lib.protobuf";
+option java_outer_classname = "TrezorMessageLiquid";
+
+import "messages-bitcoin.proto";
+
+/**
+ * Request: Ask device for blinded address corresponding to address_n path
+ * @start
+ * @next Address
+ * @next Failure
+ */
+message LiquidGetBlindedAddress {
+    repeated uint32 address_n = 1;
+    optional bool show_display = 2;
+    optional string coin_name = 3;
+    optional hw.trezor.messages.bitcoin.InputScriptType script_type = 4;
+}

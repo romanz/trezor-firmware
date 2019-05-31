@@ -237,4 +237,7 @@ enum MessageType {
     MessageType_BinanceOrderMsg = 707 [(wire_in) = true];
     MessageType_BinanceCancelMsg = 708 [(wire_in) = true];
     MessageType_BinanceSignedTx = 709 [(wire_out) = true];
+
+    // Liquid
+    MessageType_LiquidGetBlindedAddress = 801 [(wire_in) = true];
 }
