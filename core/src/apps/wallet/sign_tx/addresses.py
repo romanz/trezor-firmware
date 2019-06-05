@@ -11,6 +11,7 @@ from apps.wallet.sign_tx.multisig import multisig_get_pubkeys, multisig_pubkey_i
 from apps.wallet.sign_tx.scripts import (
     output_script_multisig,
     output_script_native_p2wpkh_or_p2wsh,
+    output_script_p2pkh,
 )
 
 # supported witness version for bech32 addresses
@@ -22,15 +23,19 @@ class AddressError(Exception):
 
 
 def get_address(
-    script_type: InputScriptType, coin: CoinInfo, node, multisig=None
+    script_type: InputScriptType,
+    coin: CoinInfo,
+    node,
+    multisig=None,
+    derive_blinding_key=None,
 ) -> str:
 
+    pubkey = node.public_key()
     if (
         script_type == InputScriptType.SPENDADDRESS
         or script_type == InputScriptType.SPENDMULTISIG
     ):
         if multisig:  # p2sh multisig
-            pubkey = node.public_key()
             index = multisig_pubkey_index(multisig, pubkey)
             if index is None:
                 raise AddressError(FailureType.ProcessError, "Public key not found")
@@ -48,7 +53,8 @@ def get_address(
             raise AddressError(FailureType.ProcessError, "Multisig details required")
 
         # p2pkh
-        address = node.address(coin.address_type)
+        blinding_key = derive_blinding_key(output_script_p2pkh(pubkey))
+        address = address_pkh(pubkey, coin, blinding_key)
         if coin.cashaddr_prefix is not None:
             address = address_to_cashaddr(address, coin)
         return address
@@ -64,7 +70,7 @@ def get_address(
             return address_multisig_p2wsh(pubkeys, multisig.m, coin.bech32_prefix)
 
         # native p2wpkh
-        return address_p2wpkh(node.public_key(), coin)
+        return address_p2wpkh(pubkey, coin)
 
     elif (
         script_type == InputScriptType.SPENDP2SHWITNESS
@@ -79,7 +85,7 @@ def get_address(
             return address_multisig_p2wsh_in_p2sh(pubkeys, multisig.m, coin)
 
         # p2wpkh nested in p2sh
-        return address_p2wpkh_in_p2sh(node.public_key(), coin)
+        return address_p2wpkh_in_p2sh(pubkey, coin, derive_blinding_key)
 
     else:
         raise AddressError(FailureType.ProcessError, "Invalid script type")
@@ -115,27 +121,44 @@ def address_multisig_p2wsh(pubkeys: bytes, m: int, hrp: str):
     return address_p2wsh(witness_script_hash, hrp)
 
 
-def address_pkh(pubkey: bytes, coin: CoinInfo) -> str:
-    s = address_type.tobytes(coin.address_type) + coin.script_hash(pubkey)
+# TODO: consider adding b'\x04' to CoinInfo (see https://github.com/ElementsProject/elements/blob/master/src/key_io.cpp)
+
+
+def address_pkh(pubkey: bytes, coin: CoinInfo, blinding_key=None) -> str:
+    s = (
+        bytes([4])
+        + address_type.tobytes(coin.address_type)
+        + blinding_key
+        + coin.script_hash(pubkey)
+    )
     return base58.encode_check(bytes(s), coin.b58_hash)
 
 
-def address_p2sh(redeem_script_hash: bytes, coin: CoinInfo) -> str:
-    s = address_type.tobytes(coin.address_type_p2sh) + redeem_script_hash
+def address_p2sh(redeem_script_hash: bytes, coin: CoinInfo, blinding_key=None) -> str:
+    s = (
+        bytes([4])
+        + address_type.tobytes(coin.address_type_p2sh)
+        + blinding_key
+        + redeem_script_hash
+    )
     return base58.encode_check(bytes(s), coin.b58_hash)
 
 
-def address_p2wpkh_in_p2sh(pubkey: bytes, coin: CoinInfo) -> str:
+def address_p2wpkh_in_p2sh(
+    pubkey: bytes, coin: CoinInfo, derive_blinding_key=None
+) -> str:
     pubkey_hash = ecdsa_hash_pubkey(pubkey, coin)
     redeem_script = output_script_native_p2wpkh_or_p2wsh(pubkey_hash)
     redeem_script_hash = coin.script_hash(redeem_script)
-    return address_p2sh(redeem_script_hash, coin)
+    return address_p2sh(
+        redeem_script_hash, coin, blinding_key=derive_blinding_key(redeem_script)
+    )
 
 
 def address_p2wsh_in_p2sh(witness_script_hash: bytes, coin: CoinInfo) -> str:
     redeem_script = output_script_native_p2wpkh_or_p2wsh(witness_script_hash)
     redeem_script_hash = coin.script_hash(redeem_script)
-    return address_p2sh(redeem_script_hash, coin)
+    return address_p2sh(redeem_script_hash, coin, blin)
 
 
 def address_p2wpkh(pubkey: bytes, coin: CoinInfo) -> str:

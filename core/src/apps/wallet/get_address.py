@@ -1,7 +1,9 @@
+from trezor.crypto import base58, bech32, hashlib, hmac
+from trezor.crypto.curve import secp256k1_zkp
 from trezor.messages import InputScriptType
 from trezor.messages.Address import Address
 
-from apps.common import coins
+from apps.common import HARDENED, coins
 from apps.common.layout import address_n_to_str, show_address, show_qr
 from apps.common.paths import validate_path
 from apps.wallet.sign_tx import addresses
@@ -22,7 +24,18 @@ async def get_address(ctx, msg, keychain):
     )
 
     node = keychain.derive(msg.address_n, coin.curve_name)
-    address = addresses.get_address(msg.script_type, coin, node, msg.multisig)
+
+    def derive_public_blinding_key(script: bytes):
+        # TODO: I guess it should be defined in a separate SLIP...
+        derivation_key = keychain.derive([HARDENED | 77]).private_key()
+        blinding_private_key = hmac.new(
+            key=derivation_key, msg=script, digestmod=hashlib.sha256
+        ).digest()
+        return secp256k1_zkp.Context().publickey(blinding_private_key)
+
+    address = addresses.get_address(
+        msg.script_type, coin, node, msg.multisig, derive_public_blinding_key
+    )
     address_short = addresses.address_short(coin, address)
     if msg.script_type == InputScriptType.SPENDWITNESS:
         address_qr = address.upper()  # bech32 address
