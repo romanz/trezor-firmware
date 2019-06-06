@@ -89,7 +89,35 @@ class Context:
         Rewind a range proof to get the value, blinding factor and message.
         '''
 
+    def surjection_proof(self, output_asset: bytes, output_asset_blind: bytes,
+                         input_assets: bytes, input_assets_blinds: bytes,
+                         input_assets_len: int, random_seed32: bytes,
+                         scratch_buffer: bytearray) -> bytes:
+        '''
+        Generate a surjection proof for specified input assets.
+        '''
+
+    def balance_blinds(self, values: Tuple[long], value_blinds: bytearray,
+                       asset_blinds: bytes, num_of_inputs: int):
+        '''
+        Balance value blinds (by updating value_blinds in-place).
+        '''
+
+    def verify_balance(self, commitments: Tuple[bytes], num_of_inputs: int)
+        '''
+        Verify that Pedersen commitments are balanced.
+        '''
+
+    def verify_surjection_proof(
+        self, proof: bytes, output_generator: bytes, input_generators:
+        Tuple[bytes]
+    ) -> bytes:
+        '''
+        Verify a surjection proof for specified blinded assets.
+        '''
+
     def allocate_scratch_buffer() -> bytearray
         '''
-        Allocate a buffer, large enough for holding a range/surjection proof.
+        Allocate a buffer, large enough for holding a range proof / reduced size
+        surjection proof.
         '''

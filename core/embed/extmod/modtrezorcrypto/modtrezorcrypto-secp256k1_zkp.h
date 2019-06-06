@@ -25,6 +25,23 @@
 #include "vendor/secp256k1-zkp/include/secp256k1_preallocated.h"
 #include "vendor/secp256k1-zkp/include/secp256k1_rangeproof.h"
 #include "vendor/secp256k1-zkp/include/secp256k1_recovery.h"
+#include "vendor/secp256k1-zkp/include/secp256k1_surjectionproof.h"
+
+#define RANGEPROOF_SIGN_BUFFER_SIZE 5134
+
+#if USE_REDUCED_SURJECTION_PROOF_SIZE
+// For firmware (where we have limited stack and heap), should result in <1kB
+// secp256k1_surjectionproof struct.
+#define SURJECTIONPROOF_MAX_USED_INPUTS 16
+#else
+// For emulator - to allocate >8kB secp256k1_surjectionproof struct.
+#define SURJECTIONPROOF_MAX_USED_INPUTS \
+  SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS
+#endif
+
+#define SURJECTIONPROOF_STRUCT_SIZE              \
+  SECP256K1_SURJECTIONPROOF_SERIALIZATION_BYTES( \
+      SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS, SURJECTIONPROOF_MAX_USED_INPUTS)
 
 void secp256k1_default_illegal_callback_fn(const char *str, void *data) {
   (void)data;
@@ -407,6 +424,18 @@ static uint64_t _mp_obj_get_uint64(mp_const_obj_t arg) {
   }
 }
 
+STATIC void parse_generator(const secp256k1_context *ctx,
+                            secp256k1_generator *generator, mp_obj_t obj) {
+  mp_buffer_info_t gen;
+  mp_get_buffer_raise(obj, &gen, MP_BUFFER_READ);
+  if (gen.len != 33) {
+    mp_raise_ValueError("Invalid length of generator");
+  }
+  if (!secp256k1_generator_parse(ctx, generator, gen.buf)) {
+    mp_raise_ValueError("Generator parsing failed");
+  }
+}
+
 /// def pedersen_commit(self, value: long, blinding_factor: bytes, gen: bytes)
 /// -> bytes:
 ///     '''
@@ -424,15 +453,9 @@ STATIC mp_obj_t mod_trezorcrypto_secp256k1_context_pedersen_commit(
   if (blind.len != 32) {
     mp_raise_ValueError("Invalid length of blinding factor");
   }
-  mp_buffer_info_t gen;
-  mp_get_buffer_raise(args[3], &gen, MP_BUFFER_READ);
-  if (gen.len != 33) {
-    mp_raise_ValueError("Invalid length of generator");
-  }
+
   secp256k1_generator generator;
-  if (!secp256k1_generator_parse(ctx, &generator, gen.buf)) {
-    mp_raise_ValueError("Generator parsing failed");
-  }
+  parse_generator(ctx, &generator, args[3]);
 
   secp256k1_pedersen_commitment commit;
   if (!secp256k1_pedersen_commit(ctx, &commit, blind.buf, value, &generator)) {
@@ -448,7 +471,18 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(
     mod_trezorcrypto_secp256k1_context_pedersen_commit_obj, 4, 4,
     mod_trezorcrypto_secp256k1_context_pedersen_commit);
 
-const size_t RANGEPROOF_SIGN_BUFFER_SIZE = 5134;
+STATIC void parse_commitment(const secp256k1_context *ctx,
+                             secp256k1_pedersen_commitment *commitment,
+                             mp_obj_t obj) {
+  mp_buffer_info_t commit;
+  mp_get_buffer_raise(obj, &commit, MP_BUFFER_READ);
+  if (commit.len != 33) {
+    mp_raise_ValueError("Invalid length of commitment");
+  }
+  if (secp256k1_pedersen_commitment_parse(ctx, commitment, commit.buf) != 1) {
+    mp_raise_ValueError("Invalid Pedersen commitment");
+  }
+}
 
 /// def rangeproof_sign(self, value: int, commit: bytes, blind: bytes,
 ///                     nonce: bytes, message: bytes, extra_commit: bytes,
@@ -467,15 +501,8 @@ STATIC mp_obj_t mod_trezorcrypto_secp256k1_context_rangeproof_sign(
       mod_trezorcrypto_get_secp256k1_context(args[0]);
   const uint64_t value = _mp_obj_get_uint64(args[1]);
 
-  mp_buffer_info_t commit;
-  mp_get_buffer_raise(args[2], &commit, MP_BUFFER_READ);
-  if (commit.len != 33) {
-    mp_raise_ValueError("Invalid length of commitment");
-  }
   secp256k1_pedersen_commitment commitment;
-  if (secp256k1_pedersen_commitment_parse(ctx, &commitment, commit.buf) != 1) {
-    mp_raise_ValueError("Invalid Pedersen commitment");
-  }
+  parse_commitment(ctx, &commitment, args[2]);
 
   mp_buffer_info_t blind;
   mp_get_buffer_raise(args[3], &blind, MP_BUFFER_READ);
@@ -495,15 +522,8 @@ STATIC mp_obj_t mod_trezorcrypto_secp256k1_context_rangeproof_sign(
   mp_buffer_info_t extra_commit;
   mp_get_buffer_raise(args[6], &extra_commit, MP_BUFFER_READ);
 
-  mp_buffer_info_t gen;
-  mp_get_buffer_raise(args[7], &gen, MP_BUFFER_READ);
-  if (gen.len != 33) {
-    mp_raise_ValueError("Invalid length of generator");
-  }
   secp256k1_generator generator;
-  if (!secp256k1_generator_parse(ctx, &generator, gen.buf)) {
-    mp_raise_ValueError("Generator parsing failed");
-  }
+  parse_generator(ctx, &generator, args[7]);
 
   mp_buffer_info_t scratch_buffer;
   mp_get_buffer_raise(args[8], &scratch_buffer, MP_BUFFER_WRITE);
@@ -538,22 +558,11 @@ STATIC mp_obj_t mod_trezorcrypto_secp256k1_context_rangeproof_rewind(
   const secp256k1_context *ctx =
       mod_trezorcrypto_get_secp256k1_context(args[0]);
 
-  mp_buffer_info_t conf_value;
-  mp_get_buffer_raise(args[1], &conf_value, MP_BUFFER_READ);
   secp256k1_pedersen_commitment commitment;
-  if (!secp256k1_pedersen_commitment_parse(ctx, &commitment, conf_value.buf)) {
-    mp_raise_ValueError("Invalid Pedersen commitment");
-  }
+  parse_commitment(ctx, &commitment, args[1]);
 
-  mp_buffer_info_t gen;
-  mp_get_buffer_raise(args[2], &gen, MP_BUFFER_READ);
-  if (gen.len != 33) {
-    mp_raise_ValueError("Invalid length of confidential asset");
-  }
   secp256k1_generator generator;
-  if (!secp256k1_generator_parse(ctx, &generator, gen.buf)) {
-    mp_raise_ValueError("Generator parsing failed");
-  }
+  parse_generator(ctx, &generator, args[2]);
 
   mp_buffer_info_t nonce;
   mp_get_buffer_raise(args[3], &nonce, MP_BUFFER_READ);
@@ -591,6 +600,273 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(
     mod_trezorcrypto_secp256k1_context_rangeproof_rewind_obj, 7, 7,
     mod_trezorcrypto_secp256k1_context_rangeproof_rewind);
 
+/// def surjection_proof(self, output_asset: bytes, output_asset_blind: bytes,
+///                      input_assets: bytes, input_assets_blinds: bytes,
+///                      input_assets_len: int, random_seed32: bytes,
+///                      scratch_buffer: bytearray) -> bytes:
+///     '''
+///     Generate a surjection proof for specified input assets.
+///     '''
+STATIC mp_obj_t mod_trezorcrypto_secp256k1_context_surjection_proof(
+    size_t n_args, const mp_obj_t *args) {
+  const secp256k1_context *ctx =
+      mod_trezorcrypto_get_secp256k1_context(args[0]);
+
+  mp_buffer_info_t output_asset;  // 32-byte output asset tag
+  mp_get_buffer_raise(args[1], &output_asset, MP_BUFFER_READ);
+
+  if (output_asset.len != sizeof(secp256k1_fixed_asset_tag)) {
+    mp_raise_ValueError("Invalid output asset size");
+  }
+
+  mp_buffer_info_t output_asset_blind;  // 32-byte output asset blinding factor
+  mp_get_buffer_raise(args[2], &output_asset_blind, MP_BUFFER_READ);
+  if (output_asset_blind.len != 32) {
+    mp_raise_ValueError("Invalid output asset blind size");
+  }
+
+  mp_buffer_info_t
+      input_assets;  // (32*input_assets_len)-byte concatenated input asset tags
+  mp_get_buffer_raise(args[3], &input_assets, MP_BUFFER_READ);
+
+  mp_buffer_info_t
+      input_assets_blinds;  // (32*input_assets_len)-byte concatenated input
+                            // asset blinding factors
+  mp_get_buffer_raise(args[4], &input_assets_blinds, MP_BUFFER_READ);
+
+  const size_t input_assets_len = mp_obj_get_int(args[5]);
+
+  if (input_assets.len !=
+      input_assets_len * sizeof(secp256k1_fixed_asset_tag)) {
+    mp_raise_ValueError("Invalid input assets size");
+  }
+  const secp256k1_fixed_asset_tag *input_assets_tags =
+      (const secp256k1_fixed_asset_tag *)input_assets.buf;
+
+  if (input_assets_blinds.len != input_assets_len * 32) {
+    mp_raise_ValueError("Invalid input assets size");
+  }
+
+  mp_buffer_info_t
+      random_seed32;  // 32-byte randomness for choosing input asset index
+  mp_get_buffer_raise(args[6], &random_seed32, MP_BUFFER_READ);
+  if (random_seed32.len != 32) {
+    mp_raise_ValueError("Invalid surjection random seed size");
+  }
+
+  mp_buffer_info_t scratch_buffer;
+  mp_get_buffer_raise(args[7], &scratch_buffer, MP_BUFFER_RW);
+  if (scratch_buffer.len < SURJECTIONPROOF_STRUCT_SIZE) {
+    mp_raise_ValueError("Invalid surjection proof state buffer");
+  }
+  secp256k1_surjectionproof *proof =
+      (secp256k1_surjectionproof *)scratch_buffer.buf;
+
+  // Initialize surjection proof & choose the input asset index to be mapped to
+  // the output
+  size_t input_index = 0;
+  const size_t input_assets_to_use = MIN(3, input_assets_len);
+  const size_t n_max_iterations = 100;
+  if (!secp256k1_surjectionproof_initialize(
+          ctx, proof, &input_index, input_assets_tags, input_assets_len,
+          input_assets_to_use, output_asset.buf, n_max_iterations,
+          random_seed32.buf)) {
+    mp_raise_ValueError("Surjection proof initialization failed");
+  }
+
+  // Re-create the inputs' and output's blinded asset generators using the
+  // assets' tags and their blinding factors
+  secp256k1_generator output_generator;
+  if (!secp256k1_generator_generate_blinded(
+          ctx, &output_generator, output_asset.buf, output_asset_blind.buf)) {
+    mp_raise_ValueError("Surjection proof output generator generation failed");
+  }
+
+  secp256k1_generator *input_generators =
+      m_new(secp256k1_generator, input_assets_len);
+  for (size_t i = 0; i < input_assets_len; ++i) {
+    const uint8_t *input_asset_key = input_assets_tags[i].data;
+    const uint8_t *input_asset_blind =
+        (const uint8_t *)(input_assets_blinds.buf) + i * 32;
+    if (!secp256k1_generator_generate_blinded(
+            ctx, input_generators + i, input_asset_key, input_asset_blind)) {
+      mp_raise_ValueError(
+          "Surjection proof output generator generation failed");
+    }
+  }
+
+  // Generate surjection proof for the chosen input and output assets
+  const uint8_t *input_asset_blind =
+      (const uint8_t *)(input_assets_blinds.buf) + input_index * 32;
+  if (!secp256k1_surjectionproof_generate(
+          ctx, proof, input_generators, input_assets_len, &output_generator,
+          input_index, input_asset_blind, output_asset_blind.buf)) {
+    mp_raise_ValueError("Surjection proof generation failed");
+  }
+
+  m_del(secp256k1_generator, input_generators, input_assets_len);
+  input_generators = NULL;
+
+  size_t output_len = secp256k1_surjectionproof_serialized_size(ctx, proof);
+  uint8_t *output = m_new(uint8_t, output_len);
+  if (!secp256k1_surjectionproof_serialize(ctx, output, &output_len, proof)) {
+    mp_raise_ValueError("Surjection proof serialization failed");
+  }
+  return mp_obj_new_bytes(output, output_len);
+}
+
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(
+    mod_trezorcrypto_secp256k1_context_surjection_proof_obj, 8, 8,
+    mod_trezorcrypto_secp256k1_context_surjection_proof);
+
+/// def balance_blinds(self, values: Tuple[long], value_blinds: bytearray,
+///                    asset_blinds: bytes, num_of_inputs: int):
+///     '''
+///     Balance value blinds (by updating value_blinds in-place).
+///     '''
+STATIC mp_obj_t mod_trezorcrypto_secp256k1_context_balance_blinds(
+    size_t n_args, const mp_obj_t *args) {
+  const secp256k1_context *ctx =
+      mod_trezorcrypto_get_secp256k1_context(args[0]);
+
+  size_t values_len = 0;
+  mp_obj_t *values_objs = NULL;
+  mp_obj_tuple_get(args[1], &values_len, &values_objs);
+
+  mp_buffer_info_t value_blinds;  // 32-byte value blinding factors
+  mp_get_buffer_raise(args[2], &value_blinds, MP_BUFFER_RW);
+  if (value_blinds.len != 32 * values_len) {
+    mp_raise_ValueError("Invalid value blind size");
+  }
+
+  mp_buffer_info_t asset_blinds;  // 32-byte asset blinding factor
+  mp_get_buffer_raise(args[3], &asset_blinds, MP_BUFFER_READ);
+  if (asset_blinds.len != 32 * values_len) {
+    mp_raise_ValueError("Invalid asset blind size");
+  }
+
+  size_t num_of_inputs = mp_obj_get_int(args[4]);
+  if (num_of_inputs <= 0 || num_of_inputs >= values_len) {
+    mp_raise_ValueError("incorrect num_of_inputs");
+  }
+
+  uint64_t values[values_len];
+  byte *value_blinds_ptrs[values_len];
+  const byte *asset_blinds_ptrs[values_len];
+
+  for (size_t i = 0; i < values_len; ++i) {
+    values[i] = _mp_obj_get_uint64(values_objs[i]);
+  }
+  for (size_t i = 0; i < values_len; ++i) {
+    value_blinds_ptrs[i] = ((byte *)value_blinds.buf) + (i * 32);
+  }
+  for (size_t i = 0; i < values_len; ++i) {
+    asset_blinds_ptrs[i] = ((const byte *)asset_blinds.buf) + (i * 32);
+  }
+
+  if (!secp256k1_pedersen_blind_generator_blind_sum(
+          ctx, values, asset_blinds_ptrs, value_blinds_ptrs, values_len,
+          num_of_inputs)) {
+    mp_raise_ValueError("Balancing blinding factors failed");
+  }
+
+  return mp_const_none;
+}
+
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(
+    mod_trezorcrypto_secp256k1_context_balance_blinds_obj, 5, 5,
+    mod_trezorcrypto_secp256k1_context_balance_blinds);
+
+/// def verify_balance(self, commitments: Tuple[bytes], num_of_inputs: int)
+///     '''
+///     Verify that Pedersen commitments are balanced.
+///     '''
+STATIC mp_obj_t mod_trezorcrypto_secp256k1_context_verify_balance(
+    size_t n_args, const mp_obj_t *args) {
+  const secp256k1_context *ctx =
+      mod_trezorcrypto_get_secp256k1_context(args[0]);
+
+  size_t n_commitments = 0;
+  mp_obj_t *commitments_objs = NULL;
+  mp_obj_tuple_get(args[1], &n_commitments, &commitments_objs);
+
+  const secp256k1_pedersen_commitment *commitments[n_commitments];
+  for (int i = 0; i < n_commitments; ++i) {
+    secp256k1_pedersen_commitment *commit =
+        m_new_obj(secp256k1_pedersen_commitment);
+    parse_commitment(ctx, commit, commitments_objs[i]);
+    commitments[i] = commit;
+  };
+
+  const size_t num_of_inputs = mp_obj_get_int(args[2]);
+  if (num_of_inputs < 1 || num_of_inputs >= n_commitments) {
+    mp_raise_ValueError("Invalid number of inputs");
+  }
+
+  if (!secp256k1_pedersen_verify_tally(ctx, commitments, num_of_inputs,
+                                       commitments + num_of_inputs,
+                                       n_commitments - num_of_inputs)) {
+    mp_raise_ValueError("Pedersen commitments are not balanced");
+  }
+
+  for (int i = 0; i < n_commitments; ++i) {
+    m_del_obj(secp256k1_pedersen_commitment, (void *)(commitments[i]));
+  }
+  return mp_const_none;
+}
+
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(
+    mod_trezorcrypto_secp256k1_context_verify_balance_obj, 3, 3,
+    mod_trezorcrypto_secp256k1_context_verify_balance);
+
+#ifndef USE_REDUCED_SURJECTION_PROOF_SIZE
+
+/// def verify_surjection_proof(
+///     self, proof: bytes, output_generator: bytes, input_generators:
+///     Tuple[bytes]
+/// ) -> bytes:
+///     '''
+///     Verify a surjection proof for specified blinded assets.
+///     '''
+STATIC mp_obj_t mod_trezorcrypto_secp256k1_context_verify_surjection_proof(
+    size_t n_args, const mp_obj_t *args) {
+  const secp256k1_context *ctx =
+      mod_trezorcrypto_get_secp256k1_context(args[0]);
+
+  mp_buffer_info_t proof_obj;
+  mp_get_buffer_raise(args[1], &proof_obj, MP_BUFFER_READ);
+  secp256k1_surjectionproof proof;
+  if (!secp256k1_surjectionproof_parse(ctx, &proof, proof_obj.buf,
+                                       proof_obj.len)) {
+    mp_raise_ValueError("Surjection proof parsing failed");
+  }
+  secp256k1_generator output_generator;
+  parse_generator(ctx, &output_generator, args[2]);
+
+  size_t inputs_len = 0;
+  mp_obj_t *inputs_objs = NULL;
+  mp_obj_tuple_get(args[3], &inputs_len, &inputs_objs);
+
+  secp256k1_generator *input_generators =
+      m_new(secp256k1_generator, inputs_len);
+  for (int i = 0; i < inputs_len; ++i) {
+    parse_generator(ctx, input_generators + i, inputs_objs[i]);
+  }
+
+  if (!secp256k1_surjectionproof_verify(ctx, &proof, input_generators,
+                                        inputs_len, &output_generator)) {
+    mp_raise_ValueError("Surjection proof verification failed");
+  }
+  m_del(secp256k1_generator, input_generators, inputs_len);
+  return mp_const_true;
+}
+
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(
+    mod_trezorcrypto_secp256k1_context_verify_surjection_proof_obj, 4, 4,
+    mod_trezorcrypto_secp256k1_context_verify_surjection_proof);
+
+#endif
+
 STATIC const mp_rom_map_elem_t
     mod_trezorcrypto_secp256k1_context_locals_dict_table[] = {
         {MP_ROM_QSTR(MP_QSTR___del__),
@@ -617,6 +893,17 @@ STATIC const mp_rom_map_elem_t
          MP_ROM_PTR(&mod_trezorcrypto_secp256k1_context_rangeproof_sign_obj)},
         {MP_ROM_QSTR(MP_QSTR_rangeproof_rewind),
          MP_ROM_PTR(&mod_trezorcrypto_secp256k1_context_rangeproof_rewind_obj)},
+        {MP_ROM_QSTR(MP_QSTR_surjection_proof),
+         MP_ROM_PTR(&mod_trezorcrypto_secp256k1_context_surjection_proof_obj)},
+        {MP_ROM_QSTR(MP_QSTR_balance_blinds),
+         MP_ROM_PTR(&mod_trezorcrypto_secp256k1_context_balance_blinds_obj)},
+        {MP_ROM_QSTR(MP_QSTR_verify_balance),
+         MP_ROM_PTR(&mod_trezorcrypto_secp256k1_context_verify_balance_obj)},
+#ifndef USE_REDUCED_SURJECTION_PROOF_SIZE
+        {MP_ROM_QSTR(MP_QSTR_verify_surjection_proof),
+         MP_ROM_PTR(
+             &mod_trezorcrypto_secp256k1_context_verify_surjection_proof_obj)},
+#endif
 };
 
 STATIC MP_DEFINE_CONST_DICT(
@@ -632,13 +919,16 @@ STATIC const mp_obj_type_t mod_trezorcrypto_secp256k1_context_type = {
 
 /// def allocate_scratch_buffer() -> bytearray
 ///     '''
-///     Allocate a buffer, large enough for holding a range/surjection proof.
+///     Allocate a buffer, large enough for holding a range proof / reduced size
+///     surjection proof.
 ///     '''
 STATIC mp_obj_t mod_trezorcrypto_secp256k1_zkp_allocate_scratch_buffer() {
-  const size_t scratch_buffer_size = RANGEPROOF_SIGN_BUFFER_SIZE;
+  const size_t scratch_buffer_size =
+      MAX(RANGEPROOF_SIGN_BUFFER_SIZE, SURJECTIONPROOF_STRUCT_SIZE);
   uint8_t *scratch_buffer = m_new(uint8_t, scratch_buffer_size);
   return mp_obj_new_bytearray_by_ref(scratch_buffer_size, scratch_buffer);
 }
+
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(
     mod_trezorcrypto_secp256k1_zkp_allocate_scratch_buffer_obj,
     mod_trezorcrypto_secp256k1_zkp_allocate_scratch_buffer);
