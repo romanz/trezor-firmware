@@ -18,13 +18,8 @@ import ctypes
 
 import pytest
 
-from trezorlib import liquid
-from trezorlib.messages import (
-    LiquidAmount,
-    LiquidBlindedOutput,
-    LiquidBlindOutput,
-    LiquidUnblindOutput,
-)
+from trezorlib import liquid, messages as proto
+from trezorlib.tools import parse_path
 
 from . import secp256k1_zkp as lib
 from .common import TrezorTest
@@ -35,7 +30,7 @@ from .common import TrezorTest
 class TestMsgLiquidFixed(TrezorTest):
 
     INPUT_AMOUNTS = [
-        LiquidAmount(
+        proto.LiquidAmount(
             value=2099999199946660,
             value_blind=bytes.fromhex(
                 "5fa920cecd0db99028e5191e60001b29d36e853d240b78461b18aec61231d206"
@@ -50,7 +45,7 @@ class TestMsgLiquidFixed(TrezorTest):
     ]
     # To be blinded
     OUTPUT_AMOUNTS = [
-        LiquidAmount(
+        proto.LiquidAmount(
             value=2099997399936660,
             value_blind=bytes.fromhex(
                 "4420823cfde6f1c26b30f90ec7dd01e4887534a20f0b0d04c36ed80e71e0fd77"
@@ -62,7 +57,7 @@ class TestMsgLiquidFixed(TrezorTest):
                 "b07670eb940bd5335f973daad8619b91ffc911f57cced458bbbf2ce03753c9bd"
             ),
         ),
-        LiquidAmount(
+        proto.LiquidAmount(
             value=11_0000_0000,
             value_blind=bytes.fromhex(
                 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -76,13 +71,13 @@ class TestMsgLiquidFixed(TrezorTest):
         ),
     ]
     EXPLICIT_AMOUNTS = [
-        LiquidAmount(
+        proto.LiquidAmount(
             value=7_0000_0000,  # explicit amount (not blinded)
             asset=bytes.fromhex(
                 "230f4f5d4b7c6fa845806ee4f67713459e1b69e8e60fcee2e4940c7a0d5de1b2"
             ),
         ),
-        LiquidAmount(
+        proto.LiquidAmount(
             value=1_0000,  # fee (not blinded)
             asset=bytes.fromhex(
                 "230f4f5d4b7c6fa845806ee4f67713459e1b69e8e60fcee2e4940c7a0d5de1b2"
@@ -91,7 +86,7 @@ class TestMsgLiquidFixed(TrezorTest):
     ]
 
     BLIND_OUTPUTS = [
-        LiquidBlindOutput(
+        proto.LiquidBlindOutput(
             amount=OUTPUT_AMOUNTS[0],
             ecdh_pubkey=bytes.fromhex(
                 "03e51618ad58667e40208978c4dff3683b694154dc7552143c3779d30d56881220"
@@ -106,7 +101,7 @@ class TestMsgLiquidFixed(TrezorTest):
                 "a9ea0e755a5c2e8210242a08e7078f7f89385eb09423555182568b96e8a4fef2"
             ),
         ),
-        LiquidBlindOutput(
+        proto.LiquidBlindOutput(
             amount=OUTPUT_AMOUNTS[1],
             ecdh_pubkey=bytes.fromhex(
                 "023407bcc7467fbd727f408a87e129a0c9a61ae0f05da8cb916ed1d69e8b7290a2"
@@ -124,7 +119,7 @@ class TestMsgLiquidFixed(TrezorTest):
     ]
 
     BLINDED_OUTPUTS = [
-        LiquidBlindedOutput(
+        proto.LiquidBlindedOutput(
             conf_value=bytes.fromhex(
                 "0916f3edd39bf22ccb0fd0a88ef58bffdc664c91d1f36b5b362de28be17ef43239"
             ),
@@ -142,7 +137,7 @@ class TestMsgLiquidFixed(TrezorTest):
                 "603200000000000000010f3f370161b262fc9e0f200d15d38f1c7452f35ca4ab091f325551c4a060c94eee160dc5881b42ae4b384482b0b9dbf9c25a72fbbaa0545a7d2a784d2be471a22af7b444efc416ca77d6ae24146c63b766da445daac910d9ae911007905ec096cb74066cdb728a81c6a2aaa62de69352da60491a6788eee093429757832a6cc22ba2948042d898a8a94eee22e16292e1f78df489ee4f07a17b406a21fe75a2a312661af694e33be69e0b6bf20dca39650736ebcfad392bfdfbf768d66cad2e7dded69322827e1de7db608441c1e38bde98afc1e96d3de3933673ecfbc8c586a5a382012167bb25e5fd895fe613a6a6d9851f56e2db1c0d6a224e190a7e37821244864446e0178886d05ab12260eee78068e26007d4e83afc67e483c3c49295d44b17cff02ebe6bf27d225aa771ec4dd5aa10020f19d494990274b13b7c0022a7ed86ce07a8d21d30cd9d4fb35c3194fe3d6c127f600f5fc2966bc90cfbecf996f8e8fba86a1d473fc54f3a5f9d99d5379b7b3a41285f494926f439ff510e1d3e8d6c20e87f8ed1c242e3219fe4c4f6de31b16c00b3d43bd86fe15765dd9d8a40a9831d80e1dba603bba36097127eec11416bc45679b9b35a1e6b07086a63c3bbe22fd5bdb044371936bcf7aad27da16be98c3db24e43df3c9dccb081fd55fe361806ed56d49e9c71d38978efd31f531c25b80d89c43e476782823d52e45efdf84c4fd2cf283c66a0b3d9517c1d5b1a25b37ec88635c0b867e89191cff5c5fa0acf0c9d6d26d1f7e403e8e2af02f9f5d133678fa19276243ed0b93f390e06224271bb8d7f29967600c71feb9b5497a278108a1c2f7fc50fc7209945b3360181e8ef3ce5476d7c287c25d5d0581ecad1d30f453f68d67e0523356e212c78d4d9080f7011c1b4baae1962560b8c6e28e74ed56b4fea78f1639a2edd4a34ee848268eff30cc9cdfb049bc91bb1c9968a6291da7ae1bfc7ee97a1e76b361fe92dec4dedfd3c4227b2e8d8d8c948b9402893658dfff14dc18b79d65da17ce5c4c5309f2d3948e3a69ffac29e66f35cc1a40f502a314950378260524e655175f8477307139540fa9905e3e57268e3f3bcfda8a062811854c02be60f71111c6ca44d5eaef80953cc3a6eb9ef7e24e9cd416776eae5a21b8c5d351f203529ef495cc54188b34cb6c66c8362467cf9089fd2b0ed3ccd698d867d566551600143281aa802143a01a2d85c9a85bd1bd75518b767788c57c04f1040d566f05c9293a615510415b9ec3186f815293dc0376988bf4e356020ff0d2ec4ee769dead1ab8c32c63f9ebd85d595fd995472c5cbd778db75d1d53bc0391f9e9ce5cf9d42b9ad919087ea6d7ec0b6b7749c6e91ef062fa9c3803805a55a0532be785a7172454acf73e7132cb9e0b036a823dd895c86fa880786aaace6900709a3c29abc7b69e7dfb523ba482ed324f547d5e9a20bfadb9d85175e5ee8b8e1aba9a5c8ad22409f8fd6deac641f33c9bd7c6b4a8b8c05510bf6e06ad19f9f90177f7511db1972db8579143c7d4709da6b50c968bfe1eae9fb7e11c67b2dd1b53bfb1e1fa5c500fe752101af8793010bc38129e17c9fcb71891012b250bf78bac68358383a14c8c8e26a30594457074d6d530c26472e821ea153311fcb5be6b433b5ee716b208802fb27887e75642f382aaf81ec1f77abc9ea71e9bdb589d7b3ec74af7ba022c90c4ab1acd00c5d9810b0243c9c91e988ad709edc9d9f664791cf6c4ed5b30b0d63dace054f635605a990d6d7288d5095fffae6316d5bb03f095a8fb4c118801ffc16e4dddf9afb05e38cff24605e0403d05a10f6234fca829e93ed6086fb9c255517213e39bb724375c310a99a194d016c17f7eac8ec953879e07efb72f79b5ba5e3fbeaf734023327fc867e825450afa23a18b27183396f7a46683d11f81f68db99a6753b9a3670e51fe81c2482b15a4e0938626c712b4b1be0ef83f2db7727455eac52e76af3e13ad2e12c7ba4c50f68f53b036ddf2c69140e8a84ab14279b34000e16fdc9bab5ec3e5b00cc0c7e4739ae778c496f94808429006e7dea90294e68c9d2c4e4e55d31f78bfe19da947bdf4963fe27516d4a464d72a26685b7ad8d471a7e54a79f20f95124fdae04d89bb8a057562a066e1dece6b3d9c00dbf6d7da910e3513de0b0db99e2c9eef538b86b55c46969a798be9150305cff5de1e1588e1cc4d5d42521e306aaec91b276f1f97f031e4b9e50991f75cd8baec2940feca28ef1d2205d9f887037cc4cb0b8d30f6ffbd5e878b7f82391f1094764d2c6bfa1a476ac24b3c63f4263381df535760ab6054239f517efb5a3efba63a2b747d01e5d064f0cf712f3682379c83ec55a87d302aefca3d91c78ba1d6203d0dfb1d71804f4930f2565eccebbb59af9f6be4f66301b86151cdb3d6ef22dc0752fa24ad96cfe33753e37e86862ce76fe8482b68d6ad97ad3f92cf118e0e4fc5e8114d6c3d300e7987b00d6def749f17a2fae044acf24dd7f8efb939357ca16cf32129bf98de0ad2fe82a312ccb456af4b4f2a881f8345201211343d01e3d97fffe272e968775edfa83636cfe2865956f4d80fcda467a861ebb326722b2f0f5db4ffae60f999c5bf1e97a74bc987e317c1dd94aaced7f8dcab3a3fc8a35cb9ed6b68fb715885fd7f6196ca1d7c104381eb4795bbe533c64b5b2407d74c19c9acb2bb83d0d680d475696c4f7277f8fc75e5cdc032b0237092df706f98a126883f160c8d24293b0e426a93cf3b49a28cd93a9d28e6eed7f1d21630c4390534e317fcdc32518da0cef28320dd9ea2d79ef4b7f72e59b675d42fcba94d146ba6efe71e1f8272484daf9c261d57095698376db8af2b39d29f9ae23e7f25bb36b414134f5d6286fe6afea6424648a6c78c930bf666799a499778f20e93a713ed725e3e26c2d28e02359250ac35b7c8239285a9e72594f94f656ed737829c16f8d096b8640c6fa993471cdbdd08875d4c230e5ca48303c2021beb4fa0b6755ffaccdd94cdc9f6b2421afbc9b224aa76be8e6a684170b6b0022c714d252212f615296b083319c0ed9cbadba7d3a5be0931bb5154ab55ec51ca583e487c4addcb8bd5855fa070828adea592daa04a40ad69191d089ac71a9f5dd673df9c33e3f55332a788756fb7c0a97386d51fdda6c1b083d4345837dec96a4a56fe9a4f52afb626f173f171bbad5a7b6fe836cc551338f68389bcd67956eab8299dd3a4dd1bdecf5bd4f643e3d738fe3da589ff45236f0c74b29e110046dfc4415aefa3e31011de80aa92b268bd0a5e14bd63e6d084a0e4a3adc791c247e1e702330806f50531240a6c14b6af990c846b937a72b35bcf15c4851332f9e62efb8107da3442c6d46106f5a2105ef1826349f71c5175986598699c6573abb881ac18bd7d6a70711af49bad0c88605cab8366709c251b22defcaffba5019c4daa5a6cf521933d42b9a2629e48500597df369215e2b115d89ff2bd85fbeada7599542b6afb3526e62cbda2b243f6388fa7cf664ed6ff68df09060af7bcf5200ff2e2f77bb591d265288f1a6b4918793ea9a20eddf9ce4a0d4855e6cd6976bff3e2009466d0802dffe612275df9fc9efa50d8b00df5727a06a47cee7bbfbf8821e89d4318c90a397c8957dfd81e24ead3ae46c5c86dbac766492b94f30976ebfc355f1dc25cd5c2a214a6ca451cab26e0b825bd228993583a454775f43cc97b97ea30ebaac9b565d6366e5ba0b18eaff98c8d6b6cc957e07f2896d42a20809ecc6d4f25f40090bce7d80ff6eeae90b865443ddd56c2746380a71826420cb29466fff63f697f574bd51143eb201a61f8afdddfce871389826105bd0ebefb0dd01f1f3d844d7d179ec249daa756789d9e369596c79cfb2c5896c8c27cf20ec79dd7a1188eb1ea938cd22229e73c359cd5f537acd02bb843cbe2100cf36a8212d3d2fca6737ddea5f9c99859280ca407fe879bd0b6adaf5f37d91d9c629f214235a4d92942a5e4dae6e710406c175aab3b39aadf792343ea9716ce975dc256852d80ab88c6bc03f89095e9915d863fb29346950bd40af6f0e363ac908d26ce6cfe87a4d20674b7528df0e80a2490417b73d9808a53780409e7e8d39025ecfd0ae7836ae21b934a3b09a9e8aa3fb10532f1640d987779d502cf86d0035feb1c39b9e0eac58f27b29bdebedd2a3af0415774955d28788481c89c954843b89d3e2db9da774fde76b661f37534685ae28bda52455c077cebcfac901da021e6fb10e6627e41bb719424ee6b51f90038fad9aca3fe4329cd1b0d566f609301abb3ff88b1a5ed4d1129a7bc088bd9fa1da88be439a39c291f5accd9ada308599e46f333d2d3cf25335a5b9421c9709556df3f4f6a3a8c7ca708b412b64dac7cb0452d47dcaf4f3a71feb13b6ae5a9c49c071c622a1793312346739fdbf4318e0fb2149c2f83181c3802c8df9ee0ea14404c3a3ccf40afecf3ef18976c9fa274b946162fbf9f4dd0de764874a969520337fa034a69ad55ba799f6c32171526823430ab1bf79a57af74c4c775760761942b430b49618bd9127d06fa9394bd4bfa2efe9a3ce740a7c0da66a1b13ac1f64a1db5ddc28ed29253f4e3b7fd64b3ad2d95a4fb342d8e9335e42bc186736b72b9fc6cecc3faf0566d60222b95e09cbde3cd47079f0bc14a35d48d18eb30ffd45c8ed844f897aa0723f25ab54b8268af927d604257325457347ac849dd97af2fd63dcb1807977d9ef9c0496b3d9717e7d36cf4f9f7e0d3fd5a251bcffb643693f9b4d9448c902ab029a1ca73319ef87b98e45f94c7869f3207a6e825a26b93a0c7ca40dbd616e60f039b420359fbc598e70f0683c214338316327e904739963c6448c9cadef52331d52755a26cc820cd5a73a106a2467b4569e906c11798cbd0cecca0b9400a64a7268904c5a2d9c4c22410e80393f3c29293c2bcf26b20a38cf31432019eae0d0eb60cf70350e1dac095ce8f55f65928ddb633ed04d9a82c4ea53311c7d3405da89e1f13010565be8c3ad16371e93feeb846d7b4e8b1b49b5164814f59f9943ce36000f08049a8b782637356df3d5d4f1c04007b3ae1700256903a5fc72b3efdd23ad74200e37ac74eb98ff6add09c0d83429722697a8155e0aa73c8a626b83897c516240241c981d554190700992681d1c80269a27474d762ab817c71652d35ca9a7563ec911e138a29412b690efe7c6d17b1b2b0aa4a23de2599015c1fe0784bd44614fe498b8204928531e7944083bb0c01196770ce0ee7752f539b9f876c9660c821694daee5d100008cb76e2dee919227deabf735b4ba5fdd0b5ff6b26cab9d03689fef2884ff3993171a8718d906e872066144458315f6c7a1178d4e50e55b6a059e8fca900e99a7bd54530f071c01fd7d92367de76557275a0dccda1241d96dcab684719d128217551df2e593ebd75f5c58f4f8a6b415dc60f13f639ccec4987b26751a53d9d065ccc7e3b836bb3f4ed974060d4ab5708473665bdc7b3a71f9df4ef88a946253b83bf7ccd999c14015b717a60f0399f85e4f499b5e811c26b8aac1820afbdb4e239f290bef1e6eca90f36d58b85722c29de40d3bb4bec875a8861af7b553181fe4139b01f9ea12e0dc5a32195766222e23add937580fff4fbec96e817c0fd8c717b898d115be1946fef895cf663fed351fa8196261cd60ba79fd5ce01abed4b1e0ee78123e95756f2850dd63b19f2bb50f611dd8f1d2eda7cdbdc929725f1c9106f6ffda10cee89974140caab66a2b315f6cb609b090dbbfd2e52f4fd6a"
             ),
         ),
-        LiquidBlindedOutput(
+        proto.LiquidBlindedOutput(
             conf_value=bytes.fromhex(
                 "08cbb1068fcc876832b14633b9d048a678398abe4a10b0497f8351810a3fa2046e"
             ),
@@ -163,13 +158,13 @@ class TestMsgLiquidFixed(TrezorTest):
     ]
 
     UNBLIND_OUTPUTS = [
-        LiquidUnblindOutput(
+        proto.LiquidUnblindOutput(
             blinded=BLINDED_OUTPUTS[0],
             ecdh_privkey=bytes.fromhex(
                 "8ba892ac8508abb576daab4f966c3ed3832cc4284b4632749c1ee496d9dfe6db"
             ),
         ),
-        LiquidUnblindOutput(
+        proto.LiquidUnblindOutput(
             blinded=BLINDED_OUTPUTS[1],
             ecdh_privkey=bytes.fromhex(
                 "6527f295b57d3788edbfca7a911da6d62e1238946736d47ae04c714502b409d2"
@@ -215,8 +210,8 @@ class TestMsgLiquidFixed(TrezorTest):
     def test_unblind_for_me(self):
         self.setup_mnemonic_nopin_nopassphrase()
 
-        unblind_output = LiquidUnblindOutput(
-            blinded=LiquidBlindedOutput(
+        unblind_output = proto.LiquidUnblindOutput(
+            blinded=proto.LiquidBlindedOutput(
                 conf_value=bytes.fromhex(
                     "09b28ea8c906ee2ad38f5bc761f0a7e3d9415e2d65f982ae56cbb2f0785c37c03b"
                 ),
@@ -235,11 +230,97 @@ class TestMsgLiquidFixed(TrezorTest):
             ecdh_privkey=None,
         )
         unblinded = liquid.unblind_output(self.client, unblind_output)
-        assert unblinded == LiquidAmount(
+        assert unblinded == proto.LiquidAmount(
             value=10020000,
             value_blind=bytes.fromhex("58cbf3aeee7976e0b1933a6ac063635aec60a4e7c8de141b8e83f325e82e40e2"),
             asset=bytes.fromhex("230f4f5d4b7c6fa845806ee4f67713459e1b69e8e60fcee2e4940c7a0d5de1b2"),
             asset_blind=bytes.fromhex("6b501a727daac45b0d130b6044348c6cc8d55c1dc0da8b51bea13a3131548860"))
+
+
+    # TODO: check output surjection using libsecp256k1
+    def test_sign_tx(self):
+        self.setup_mnemonic_nopin_nopassphrase()
+        sign_inputs = [
+            proto.LiquidSignTxInput(
+                prev_hash=bytes.fromhex(
+                    "110a761d119f0919c3c60e223a477948c6c6c4a020a46b818fa05a53201e11bf"
+                ),
+                prev_index=1,
+                sequence=0xFFFFFFFD,
+                issuance=b"",
+                value=bytes.fromhex(
+                    "08178bd3991e333107346f26b52a27f441b43b70f45e8f8cdf20df59897cfc077b"
+                ),
+                script_code=bytes.fromhex(
+                    "76a914ec1d316f5b03870be2dda1df3c15876c414c958988ac"
+                ),  # -> derive on-device
+                sign_privkey=bytes.fromhex(
+                    "aa902fc9df6a07f330dcbb2d303544a91e58d88a5d1760599b4b72719d240e22"
+                ),
+            )  # -> derive on-device
+        ]
+        sign_outputs = [
+            proto.LiquidSignTxOutput(
+                asset=bytes.fromhex(
+                    "0a85e434f59be44088e971c1e732c646e3acf6201d4306087e2745eec2d69c4714"
+                ),
+                value=bytes.fromhex(
+                    "0880b90389f41f30152a8c6478dbebcb174f0040af3c2ada1d3bb18e3e9d4e5a8a"
+                ),
+                nonce=bytes.fromhex(
+                    "02ebbcfb668fcfbf91d8c505236dbfb28a24baf7fef42138f4109d47912b9f7f19"
+                ),
+                script_pubkey=bytes.fromhex(
+                    "a914568171b717ea909b9d64bf6c96bf77d4be47ec6887"
+                ),
+            ),
+            proto.LiquidSignTxOutput(
+                asset=bytes.fromhex(
+                    "0ab6f751be3ba9b69fcd94907a41c24d2700b910a3292deeb91ca17dd0a851d112"
+                ),
+                value=bytes.fromhex(
+                    "091d571f498f3865ef359b8ab6d9133d5152d8db0087c3bee995b7c56fcff3496e"
+                ),
+                nonce=bytes.fromhex(
+                    "0225765310adc82c37c9552815a5cbc8f2a4e200c32be579167d953a5ff187edc3"
+                ),
+                script_pubkey=bytes.fromhex(
+                    "a914092edbd0a602e8464ce37b97b74a0151f01ab57a87"
+                ),
+            ),
+            proto.LiquidSignTxOutput(
+                asset=bytes.fromhex(
+                    "01230f4f5d4b7c6fa845806ee4f67713459e1b69e8e60fcee2e4940c7a0d5de1b2"
+                ),
+                value=bytes.fromhex("01000000000000aa50"),
+                nonce=bytes.fromhex("00"),
+                script_pubkey=bytes.fromhex(""),
+            ),
+        ]
+        req = proto.LiquidSignTx(
+            version=2,
+            inputs=sign_inputs,
+            outputs=sign_outputs,
+            lock_time=303,
+            hash_type=1,
+        )
+        res = liquid.sign_tx(self.client, req)
+        sigs = [
+            proto.LiquidSignature(
+                digest=bytes.fromhex(
+                    "dbcdc4287f3ffeaf33dfe8d7238383502bbafd702d3b41b92fdc47e83982ff0c"
+                ),
+                sigder=bytes.fromhex(
+                    "30440220292cf66c5ea9e7efb39a396f90ad6b638adc3e34e68f8af2ede74f6fb7cf76bf02203610c1040f380f226619d059cdc64e4f74d5b7b19ff36ef3e1072df29caa91e0"
+                ),
+                pubkey=bytes.fromhex(
+                    "02d1fc4a3a9c00e1b17b9f4af071aa8331e97218d96a44ed0069c224a054fd85cc"
+                ),
+            )
+        ]
+        assert res == proto.LiquidSignedTx(sigs=sigs)
+        for sig in res.sigs:
+            ecdsa_verify(sig)
 
 # TODO: check output surjection using libsecp256k1
 
@@ -256,8 +337,28 @@ class TestMsgLiquidFixed(TrezorTest):
 # $ make
 
 
-
 ctx = lib.secp256k1_blind_context
+
+
+def ecdsa_verify(sig):
+    # Parse serialized public key
+    pubkey = ctypes.create_string_buffer(64)
+    assert (
+        lib.secp256k1.secp256k1_ec_pubkey_parse(
+            ctx, pubkey, sig.pubkey, len(sig.pubkey)
+        )
+        == 1
+    )
+    # Parse DER-serialized ECDSA signature
+    rawsig = ctypes.create_string_buffer(64)
+    assert (
+        lib.secp256k1.secp256k1_ecdsa_signature_parse_der(
+            ctx, rawsig, sig.sigder, len(sig.sigder)
+        )
+        == 1
+    )
+    # Verify ECDSA signature on given digest
+    assert lib.secp256k1.secp256k1_ecdsa_verify(ctx, rawsig, sig.digest, pubkey) == 1
 
 
 def _verify_range_proof(blinded_output):
@@ -301,7 +402,7 @@ def _verify_range_proof(blinded_output):
     assert max_value <= 2 ** 51
 
 
-def _blind_amount(a: LiquidAmount):
+def _blind_amount(a: proto.LiquidAmount):
     generator = ctypes.create_string_buffer(lib.SECP256K1_GENERATOR_SIZE)
     assert (
         lib.secp256k1.secp256k1_generator_generate_blinded(
@@ -324,12 +425,12 @@ def _blind_amount(a: LiquidAmount):
         == 1
     )
 
-    return LiquidBlindedOutput(conf_value=bytes(serialized))
+    return proto.LiquidBlindedOutput(conf_value=bytes(serialized))
 
 
 def _get_commitment(v):
-    """v may be an explicit LiquidAmount or BlindedOutput"""
-    if isinstance(v, LiquidAmount):
+    """v may be an explicit proto.LiquidAmount or BlindedOutput"""
+    if isinstance(v, proto.LiquidAmount):
         zero_blinder = b"\x00" * 32
         generator = ctypes.create_string_buffer(lib.SECP256K1_GENERATOR_SIZE)
         assert lib.secp256k1.secp256k1_generator_generate(ctx, generator, v.asset) == 1
@@ -343,7 +444,7 @@ def _get_commitment(v):
         )
         return commit
 
-    if isinstance(v, LiquidBlindedOutput):
+    if isinstance(v, proto.LiquidBlindedOutput):
         conf_value = ctypes.create_string_buffer(lib.SECP256K1_PEDERSEN_COMMITMENT_SIZE)
         assert (
             lib.secp256k1.secp256k1_pedersen_commitment_parse(
@@ -357,7 +458,7 @@ def _get_commitment(v):
 
 
 def _get_blinded_generator(v):
-    if isinstance(v, LiquidAmount):
+    if isinstance(v, proto.LiquidAmount):
         generator = ctypes.create_string_buffer(lib.SECP256K1_GENERATOR_SIZE)
         assert (
             lib.secp256k1.secp256k1_generator_generate_blinded(
@@ -367,7 +468,7 @@ def _get_blinded_generator(v):
         )
         return generator
 
-    if isinstance(v, LiquidBlindedOutput):
+    if isinstance(v, proto.LiquidBlindedOutput):
         conf_asset = ctypes.create_string_buffer(lib.SECP256K1_GENERATOR_SIZE)
         assert (
             lib.secp256k1.secp256k1_generator_parse(ctx, conf_asset, v.conf_asset) == 1

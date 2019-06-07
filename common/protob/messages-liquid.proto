@@ -59,3 +59,40 @@ message LiquidBlindTx {
 message LiquidBlindTxRequest {
     optional uint32 output_index = 1;
 }
+
+// One-shot signature request (WIP: NOT SAFE!!!)
+message LiquidSignTx {
+    optional uint32 version = 1;
+    repeated LiquidSignTxInput inputs = 2;
+    repeated LiquidSignTxOutput outputs = 3;
+    optional uint32 lock_time = 4;
+    optional uint32 hash_type = 5;
+
+    message LiquidSignTxInput {
+        optional bytes prev_hash = 1;
+        optional uint32 prev_index = 2;
+        optional uint32 sequence = 3;
+        optional bytes issuance = 4;
+        optional bytes value = 5;  // for segwit
+
+        optional bytes script_code = 6;  // -> should be derived on-device
+        optional bytes sign_privkey = 7;  // -> should be derived on-device
+    }
+
+    message LiquidSignTxOutput {
+        optional bytes asset = 1;
+        optional bytes value = 2;
+        optional bytes nonce = 3;  // ECDH pubkey
+        optional bytes script_pubkey = 4;
+    }
+}
+
+message LiquidSignedTx {
+    repeated LiquidSignature sigs = 1;  // for each input
+
+    message LiquidSignature {
+        optional bytes digest = 1;
+        optional bytes pubkey = 2;
+        optional bytes sigder = 3;
+    }
+}

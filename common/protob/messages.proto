@@ -244,4 +244,6 @@ enum MessageType {
     MessageType_LiquidBlindedOutput = 803 [(wire_out) = true];
     MessageType_LiquidUnblindOutput = 804 [(wire_in) = true];
     MessageType_LiquidAmount = 805 [(wire_out) = true];
+    MessageType_LiquidSignTx = 806 [(wire_in) = true];
+    MessageType_LiquidSignedTx = 807 [(wire_out) = true];
 }

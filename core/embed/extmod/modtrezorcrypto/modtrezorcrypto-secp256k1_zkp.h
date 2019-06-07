@@ -208,6 +208,40 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(
     mod_trezorcrypto_secp256k1_context_sign_obj, 3, 4,
     mod_trezorcrypto_secp256k1_context_sign);
 
+/// def sign_der(self, secret_key: bytes, digest: bytes) -> bytes:
+///     """
+///     Uses secret key to produce DER serialization of ECDSA signature of the
+///     digest.
+///     """
+STATIC mp_obj_t mod_trezorcrypto_secp256k1_context_sign_der(mp_obj_t self,
+                                                            mp_obj_t secret_key,
+                                                            mp_obj_t digest) {
+  const secp256k1_context *ctx = mod_trezorcrypto_get_secp256k1_context(self);
+  mp_buffer_info_t sk, dig;
+  mp_get_buffer_raise(secret_key, &sk, MP_BUFFER_READ);
+  mp_get_buffer_raise(digest, &dig, MP_BUFFER_READ);
+  if (sk.len != 32) {
+    mp_raise_ValueError("Invalid length of secret key");
+  }
+  if (dig.len != 32) {
+    mp_raise_ValueError("Invalid length of digest");
+  }
+  secp256k1_ecdsa_signature sig;
+  if (!secp256k1_ecdsa_sign(ctx, &sig, (const uint8_t *)dig.buf,
+                            (const uint8_t *)sk.buf, NULL, NULL)) {
+    mp_raise_ValueError("Signing failed");
+  }
+  uint8_t out[72];  // from CPubKey::SIGNATURE_SIZE
+  size_t outlen = sizeof(out);
+  if (!secp256k1_ecdsa_signature_serialize_der(ctx, out, &outlen, &sig)) {
+    mp_raise_ValueError("DER serialization failed");
+  }
+  return mp_obj_new_bytes(out, outlen);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_3(
+    mod_trezorcrypto_secp256k1_context_sign_der_obj,
+    mod_trezorcrypto_secp256k1_context_sign_der);
+
 /// def verify(
 ///     self, public_key: bytes, signature: bytes, digest: bytes
 /// ) -> bool:
@@ -867,6 +901,8 @@ STATIC const mp_rom_map_elem_t
          MP_ROM_PTR(&mod_trezorcrypto_secp256k1_context_publickey_obj)},
         {MP_ROM_QSTR(MP_QSTR_sign),
          MP_ROM_PTR(&mod_trezorcrypto_secp256k1_context_sign_obj)},
+        {MP_ROM_QSTR(MP_QSTR_sign_der),
+         MP_ROM_PTR(&mod_trezorcrypto_secp256k1_context_sign_der_obj)},
         {MP_ROM_QSTR(MP_QSTR_verify),
          MP_ROM_PTR(&mod_trezorcrypto_secp256k1_context_verify_obj)},
         {MP_ROM_QSTR(MP_QSTR_verify_recover),
