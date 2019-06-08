@@ -1,7 +1,7 @@
 from trezor.messages import InputScriptType
 from trezor.messages.Address import Address
 
-from apps.common import coins
+from apps.common import coins, seed
 from apps.common.layout import address_n_to_str, show_address, show_qr
 from apps.common.paths import validate_path
 from apps.wallet.sign_tx import addresses
@@ -22,7 +22,23 @@ async def get_address(ctx, msg, keychain):
     )
 
     node = keychain.derive(msg.address_n, coin.curve_name)
-    address = addresses.get_address(msg.script_type, coin, node, msg.multisig)
+    derive_blinding_pubkey = None
+    if coin.blinded_address_type is not None:
+        master_blinding_key = (
+            msg.master_blinding_key
+            or seed.derive_slip21_node_without_passphrase([b"SLIP-0077"]).key()
+        )
+        derive_blinding_pubkey = lambda script: seed.derive_blinding_public_key(
+            script=script, master_blinding_key=master_blinding_key
+        )
+
+    address = addresses.get_address(
+        msg.script_type,
+        coin,
+        node,
+        msg.multisig,
+        derive_blinding_pubkey=derive_blinding_pubkey,
+    )
     address_short = addresses.address_short(coin, address)
     if msg.script_type == InputScriptType.SPENDWITNESS:
         address_qr = address.upper()  # bech32 address

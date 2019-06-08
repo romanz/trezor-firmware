@@ -46,6 +46,7 @@ def get_address(
     show_display=False,
     multisig=None,
     script_type=messages.InputScriptType.SPENDADDRESS,
+    master_blinding_key=None,
 ):
     return client.call(
         messages.GetAddress(
@@ -54,6 +55,7 @@ def get_address(
             show_display=show_display,
             multisig=multisig,
             script_type=script_type,
+            master_blinding_key=master_blinding_key,
         )
     )
 
