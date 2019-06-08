@@ -21,12 +21,14 @@ class GetAddress(p.MessageType):
         show_display: bool = None,
         multisig: MultisigRedeemScriptType = None,
         script_type: int = None,
+        blinded: bool = None,
     ) -> None:
         self.address_n = address_n if address_n is not None else []
         self.coin_name = coin_name
         self.show_display = show_display
         self.multisig = multisig
         self.script_type = script_type
+        self.blinded = blinded
 
     @classmethod
     def get_fields(cls):
@@ -36,4 +38,5 @@ class GetAddress(p.MessageType):
             3: ('show_display', p.BoolType, 0),
             4: ('multisig', MultisigRedeemScriptType, 0),
             5: ('script_type', p.UVarintType, 0),  # default=SPENDADDRESS
+            6: ('blinded', p.BoolType, 0),
         }

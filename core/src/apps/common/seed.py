@@ -1,5 +1,5 @@
 from trezor import wire
-from trezor.crypto import bip32
+from trezor.crypto import bip32, curve, hashlib, hmac
 
 from apps.common import HARDENED, cache, mnemonic, storage
 from apps.common.request_passphrase import protect_by_passphrase
@@ -57,6 +57,20 @@ class Keychain:
         node = root.clone()
         node.derive_path(suffix)
         return node
+
+    def derive_blinding_private_key(
+        self, script: bytes, curve_name: str = "secp256k1"
+    ) -> bytes:
+        derivation_key = self.derive([HARDENED | 77], curve_name).private_key()
+        return hmac.new(
+            key=derivation_key, msg=script, digestmod=hashlib.sha256
+        ).digest()
+
+    def derive_blinding_public_key(
+        self, script: bytes, curve_name: str = "secp256k1"
+    ) -> bytes:
+        private_key = self.derive_blinding_private_key(script, curve_name)
+        return curve.secp256k1.publickey(private_key)
 
 
 async def get_keychain(ctx: wire.Context, namespaces: list) -> Keychain:

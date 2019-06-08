@@ -799,12 +799,13 @@ def usb_reset():
 )
 @click.option("-t", "--script-type", type=CHOICE_INPUT_SCRIPT_TYPE, default="address")
 @click.option("-d", "--show-display", is_flag=True)
+@click.option("-b", "--blinded", is_flag=True)
 @click.pass_obj
-def get_address(connect, coin, address, script_type, show_display):
+def get_address(connect, coin, address, script_type, show_display, blinded):
     client = connect()
     address_n = tools.parse_path(address)
     return btc.get_address(
-        client, coin, address_n, show_display, script_type=script_type
+        client, coin, address_n, show_display, script_type=script_type, blinded=blinded
     )
 
 
