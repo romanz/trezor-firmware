@@ -116,6 +116,31 @@ class TestMsgGetaddress(TrezorTest):
             == "Fmhtxeh7YdCBkyQF7AQG4QnY8y3rJg89di"
         )
 
+    def test_elements(self):
+        self.setup_mnemonic_nopin_nopassphrase()
+        assert (
+            btc.get_address(
+                self.client,
+                "Elements",
+                parse_path("44'/1'/0'/0/0"),
+                script_type=proto.InputScriptType.SPENDADDRESS,
+            )
+            == "2dekDMTvVnZjAZVFRrs8mRAhyXKHGptx5pd"
+        )
+
+    def test_elements_blinded(self):
+        self.setup_mnemonic_nopin_nopassphrase()
+        assert (
+            btc.get_address(
+                self.client,
+                "Elements",
+                parse_path("m/44'/1'/0'/0/0"),
+                script_type=proto.InputScriptType.SPENDADDRESS,
+                blinded=True,
+            )
+            == "CTExWxzfzRCb6TMgk4F1Hjqmba3ovvPJn5HBjKuhoZPpqScXxUc3yx2dwFAYKLrLSHwUjueLe81VH56G"
+        )
+
     def test_multisig(self):
         self.setup_mnemonic_allallall()
         xpubs = []

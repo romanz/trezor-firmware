@@ -22,7 +22,19 @@ async def get_address(ctx, msg, keychain):
     )
 
     node = keychain.derive(msg.address_n, coin.curve_name)
-    address = addresses.get_address(msg.script_type, coin, node, msg.multisig)
+    derive_blinding_pubkey = None
+    if msg.blinded:
+        derive_blinding_pubkey = lambda script: keychain.derive_blinding_public_key(
+            script=script, curve_name=coin.curve_name
+        )
+
+    address = addresses.get_address(
+        msg.script_type,
+        coin,
+        node,
+        msg.multisig,
+        derive_blinding_pubkey=derive_blinding_pubkey,
+    )
     address_short = addresses.address_short(coin, address)
     if msg.script_type == InputScriptType.SPENDWITNESS:
         address_qr = address.upper()  # bech32 address
