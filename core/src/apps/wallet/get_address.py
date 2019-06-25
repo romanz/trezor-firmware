@@ -1,7 +1,7 @@
 from trezor.messages import InputScriptType
 from trezor.messages.Address import Address
 
-from apps.common import coins
+from apps.common import coins, seed
 from apps.common.layout import address_n_to_str, show_address, show_qr
 from apps.common.paths import validate_path
 from apps.wallet.sign_tx import addresses
@@ -23,9 +23,12 @@ async def get_address(ctx, msg, keychain):
 
     node = keychain.derive(msg.address_n, coin.curve_name)
     derive_blinding_pubkey = None
-    if msg.blinded:
-        derive_blinding_pubkey = lambda script: keychain.derive_blinding_public_key(
-            script=script, curve_name=coin.curve_name
+    if coin.blinded_address_type is not None:
+        mbk = msg.master_blinding_key or keychain.master_blinding_key(
+            curve_name=coin.curve_name
+        )
+        derive_blinding_pubkey = lambda script: seed.derive_blinding_public_key(
+            script=script, master_blinding_key=mbk
         )
 
     address = addresses.get_address(

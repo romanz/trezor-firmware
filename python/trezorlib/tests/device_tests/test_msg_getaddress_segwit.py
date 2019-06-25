@@ -118,21 +118,20 @@ class TestMsgGetaddressSegwit(TrezorTest):
             btc.get_address(
                 self.client,
                 "Elements",
-                parse_path("49'/1'/0'/0/0"),
+                parse_path("m/49'/1'/0'/0/0"),
                 script_type=proto.InputScriptType.SPENDP2SHWITNESS,
+                master_blinding_key=bytes.fromhex(
+                    "4ae1ab9d1846cf70ebec7f1b212663d3a4c8b4c3d78f5c0e3dde55c230c496df"
+                ),
             )
-            == "XNjJ1qiCjiimmqb4rbrPYbyAGPrbyZqaLs"
+            == "AzpshWrn9FrCZ7iKE4NZDVhaa7qRzAg6rcZbXjENL3Kk44R19rZ2iSBuWwAx7aiAfW336b54TSJT7QgG"
         )
-
-    def test_elements_blinded(self):
-        self.setup_mnemonic_nopin_nopassphrase()
         assert (
             btc.get_address(
                 self.client,
                 "Elements",
                 parse_path("m/49'/1'/0'/0/0"),
                 script_type=proto.InputScriptType.SPENDP2SHWITNESS,
-                blinded=True,
             )
             == "AzpshWrn9FrCZ7iKE4NZDVhaa7qRzAg6rcZbXjENL3Kk44R19rZ2iSBuWwAx7aiAfW336b54TSJT7QgG"
         )

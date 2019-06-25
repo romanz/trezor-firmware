@@ -58,21 +58,22 @@ class Keychain:
         node.derive_path(suffix)
         return node
 
-    def derive_blinding_private_key(
-        self, script: bytes, curve_name: str = "secp256k1"
-    ) -> bytes:
-        """Deterministic derivation of blinding keys (see SLIP-0077)."""
+    def master_blinding_key(self, curve_name: str = "secp256k1") -> bytes:
         node = self.derive([HARDENED | 10077], curve_name)
-        master_blinding_key = hashlib.sha256(node.private_key()).digest()
-        return hmac.new(
-            key=master_blinding_key, msg=script, digestmod=hashlib.sha256
-        ).digest()
+        return hashlib.sha256(node.private_key()).digest()
 
-    def derive_blinding_public_key(
-        self, script: bytes, curve_name: str = "secp256k1"
-    ) -> bytes:
-        private_key = self.derive_blinding_private_key(script, curve_name)
-        return curve.secp256k1.publickey(private_key)
+
+def derive_blinding_private_key(master_blinding_key: bytes, script: bytes) -> bytes:
+    """Deterministic derivation of blinding keys (see SLIP-0077)."""
+    assert len(master_blinding_key) == 32
+    return hmac.new(
+        key=master_blinding_key, msg=script, digestmod=hashlib.sha256
+    ).digest()
+
+
+def derive_blinding_public_key(master_blinding_key: bytes, script: bytes) -> bytes:
+    private_key = derive_blinding_private_key(master_blinding_key, script)
+    return curve.secp256k1.publickey(private_key)
 
 
 async def get_keychain(ctx: wire.Context, namespaces: list) -> Keychain:
