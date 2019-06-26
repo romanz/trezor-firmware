@@ -58,13 +58,16 @@ class Keychain:
         node.derive_path(suffix)
         return node
 
-    def master_blinding_key(self, curve_name: str = "secp256k1") -> bytes:
-        node = self.derive([HARDENED | 10077], curve_name)
-        return hashlib.sha256(node.private_key()).digest()
+    def master_blinding_key(self) -> bytes:
+        domain = b"Symmetric key seed"
+        root = hmac.new(key=domain, msg=self.seed, digestmod=hashlib.sha512).digest()
+        label = b"SLIP-77"  # master blinding key derivation for Elements/Liquid
+        node = hmac.new(key=root[0:32], msg=label, digestmod=hashlib.sha512).digest()
+        return node[32:64]
 
 
 def derive_blinding_private_key(master_blinding_key: bytes, script: bytes) -> bytes:
-    """Deterministic derivation of blinding keys (see SLIP-0077)."""
+    """Following the derivation by Elements/Liquid."""
     assert len(master_blinding_key) == 32
     return hmac.new(
         key=master_blinding_key, msg=script, digestmod=hashlib.sha256

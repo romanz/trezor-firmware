@@ -44,6 +44,7 @@ message LiquidBlindedOutput {
 message LiquidUnblindOutput {
     optional LiquidBlindedOutput blinded = 1;
     optional bytes ecdh_privkey = 2;        // -> should be derived on-device
+    optional bytes master_blinding_key = 3; // -> should be derived on-device
 }
 
 message LiquidBalanceBlinds {

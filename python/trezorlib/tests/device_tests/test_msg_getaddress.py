@@ -136,8 +136,9 @@ class TestMsgGetaddress(TrezorTest):
                 "Elements",
                 parse_path("m/44'/1'/0'/0/0"),
                 script_type=proto.InputScriptType.SPENDADDRESS,
+                # Use internal master blinding key derivation
             )
-            == "CTExWxzfzRCb6TMgk4F1Hjqmba3ovvPJn5HBjKuhoZPpqScXxUc3yx2dwFAYKLrLSHwUjueLe81VH56G"
+            == "CTEx6GzemqB3RLRn8yNEWuNuBxijqKGEivKQzzPb1UKu6ZbmugvrJ5UCtGzpQcXPQA3R9CjLRmydj3T8"
         )
 
     def test_multisig(self):

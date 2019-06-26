@@ -132,6 +132,7 @@ class TestMsgGetaddressSegwit(TrezorTest):
                 "Elements",
                 parse_path("m/49'/1'/0'/0/0"),
                 script_type=proto.InputScriptType.SPENDP2SHWITNESS,
+                # Use internal master blinding key derivation
             )
-            == "AzpshWrn9FrCZ7iKE4NZDVhaa7qRzAg6rcZbXjENL3Kk44R19rZ2iSBuWwAx7aiAfW336b54TSJT7QgG"
+            == "AzptRxpFv8Y5GKroZroAczh3MYmJVkDJLYiiaZZFhkVKcRaT5XXz4jHDzxUmZ9X3ias5inuURBzMi7xi"
         )
