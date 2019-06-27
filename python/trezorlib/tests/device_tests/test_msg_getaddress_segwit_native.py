@@ -80,6 +80,20 @@ class TestMsgGetaddressSegwitNative(TrezorTest):
             == "grs1qw4teyraux2s77nhjdwh9ar8rl9dt7zww8r6lne"
         )
 
+    def test_show_elements(self):
+        self.setup_mnemonic_allallall()
+        assert (
+            btc.get_address(
+                self.client,
+                "Elements",
+                parse_path("84'/1'/0'/0/0"),
+                show_display=False,
+                multisig=None,
+                script_type=proto.InputScriptType.SPENDWITNESS,
+            )
+            == "el1qqf6phclaj5xd8x5t8a94vjtwu7tgh636x5tz6pkpxr9kx8wjuu8vnvcac23rv5z6djujq8aqgyw28z39ffalz62w06u8hgg4g"
+        )
+
     def test_show_multisig_3(self):
         self.setup_mnemonic_allallall()
         nodes = [
