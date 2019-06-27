@@ -1,6 +1,6 @@
 from micropython import const
 
-from trezor.crypto import base58, bech32, cashaddr
+from trezor.crypto import base58, bech32, blech32, cashaddr
 from trezor.crypto.curve import secp256k1_zkp
 from trezor.crypto.hashlib import sha256
 from trezor.messages import FailureType, InputScriptType
@@ -70,7 +70,7 @@ def get_address(
             return address_multisig_p2wsh(pubkeys, multisig.m, coin.bech32_prefix)
 
         # native p2wpkh
-        return address_p2wpkh(pubkey, coin)
+        return address_p2wpkh(pubkey, coin, derive_blinding_pubkey)
 
     elif (
         script_type == InputScriptType.SPENDP2SHWITNESS
@@ -172,9 +172,14 @@ def address_p2wsh_in_p2sh(witness_script_hash: bytes, coin: CoinInfo) -> str:
     return address_p2sh(redeem_script_hash, coin)
 
 
-def address_p2wpkh(pubkey: bytes, coin: CoinInfo) -> str:
+def address_p2wpkh(pubkey: bytes, coin: CoinInfo, derive_blinding_pubkey=None) -> str:
     pubkeyhash = ecdsa_hash_pubkey(pubkey, coin)
-    address = bech32.encode(coin.bech32_prefix, _BECH32_WITVER, pubkeyhash)
+    if derive_blinding_pubkey is None:
+        address = bech32.encode(coin.bech32_prefix, _BECH32_WITVER, pubkeyhash)
+    else:
+        script = output_script_native_p2wpkh_or_p2wsh(pubkeyhash)
+        witprog = derive_blinding_pubkey(script=script) + pubkeyhash
+        address = blech32.encode(coin.bech32_prefix, _BECH32_WITVER, witprog)
     if address is None:
         raise AddressError(FailureType.ProcessError, "Invalid address")
     return address

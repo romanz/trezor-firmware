@@ -27,57 +27,13 @@ class TestMsgGetaddressSegwitNative(TrezorTest):
         assert (
             btc.get_address(
                 self.client,
-                "Testnet",
-                parse_path("49'/1'/0'/0/0"),
-                True,
-                None,
+                "Elements",
+                parse_path("84'/1'/0'/0/0"),
+                show_display=False,
+                multisig=None,
                 script_type=proto.InputScriptType.SPENDWITNESS,
             )
-            == "tb1qqzv60m9ajw8drqulta4ld4gfx0rdh82un5s65s"
-        )
-        assert (
-            btc.get_address(
-                self.client,
-                "Testnet",
-                parse_path("49'/1'/0'/1/0"),
-                False,
-                None,
-                script_type=proto.InputScriptType.SPENDWITNESS,
-            )
-            == "tb1q694ccp5qcc0udmfwgp692u2s2hjpq5h407urtu"
-        )
-        assert (
-            btc.get_address(
-                self.client,
-                "Testnet",
-                parse_path("44'/1'/0'/0/0"),
-                False,
-                None,
-                script_type=proto.InputScriptType.SPENDWITNESS,
-            )
-            == "tb1q54un3q39sf7e7tlfq99d6ezys7qgc62a6rxllc"
-        )
-        assert (
-            btc.get_address(
-                self.client,
-                "Testnet",
-                parse_path("44'/1'/0'/0/0"),
-                False,
-                None,
-                script_type=proto.InputScriptType.SPENDADDRESS,
-            )
-            == "mvbu1Gdy8SUjTenqerxUaZyYjmveZvt33q"
-        )
-        assert (
-            btc.get_address(
-                self.client,
-                "Groestlcoin",
-                parse_path("84'/17'/0'/0/0"),
-                False,
-                None,
-                script_type=proto.InputScriptType.SPENDWITNESS,
-            )
-            == "grs1qw4teyraux2s77nhjdwh9ar8rl9dt7zww8r6lne"
+            == ""
         )
 
     def test_show_multisig_3(self):
