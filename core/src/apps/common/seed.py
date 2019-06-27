@@ -1,5 +1,5 @@
 from trezor import wire
-from trezor.crypto import bip32
+from trezor.crypto import bip32, hashlib, hmac
 
 from apps.common import HARDENED, cache, mnemonic, storage
 from apps.common.request_passphrase import protect_by_passphrase
@@ -33,7 +33,9 @@ class Keychain:
                 return
         raise wire.DataError("Forbidden key path")
 
-    def derive(self, node_path: list, curve_name: str = "secp256k1") -> bip32.HDNode:
+    def derive(
+        self, node_path: list, curve_name: str = "secp256k1"
+    ) -> Union[bip32.HDNode, Slip21Node]:
         # find the root node index
         root_index = 0
         for curve, *path in self.namespaces:
@@ -48,7 +50,10 @@ class Keychain:
         # create the root node if not cached
         root = self.roots[root_index]
         if root is None:
-            root = bip32.from_seed(self.seed, curve_name)
+            if curve_name != "slip21":
+                root = bip32.from_seed(self.seed, curve_name)
+            else:
+                root = Slip21Node(self.seed)
             root.derive_path(path)
             self.roots[root_index] = root
 
@@ -92,3 +97,34 @@ def remove_ed25519_prefix(pubkey: bytes) -> bytes:
 
 def _path_hardened(path: list) -> bool:
     return all(i & HARDENED for i in path)
+
+
+class Slip21Node:
+    def __init__(self, seed: bytes = None):
+        if seed is not None:
+            self.data = hmac.Hmac(b"Symmetric key seed", seed, hashlib.sha512).digest()
+        else:
+            self.data = None
+
+    def derive_path(self, path: list) -> None:
+        for label in path:
+            h = hmac.Hmac(self.data[0:32], b"\x00", hashlib.sha512)
+            h.update(label)
+            self.data = h.digest()
+
+    def key(self) -> bytes:
+        return self.data[32:64]
+
+    def clone(self) -> Slip21Node:
+        node = Slip21Node()
+        node.data = self.data
+        return node
+
+
+def derive_slip21_node_without_passphrase(path: list) -> Slip21Node:
+    if not storage.is_initialized():
+        raise Exception("Device is not initialized")
+    seed = mnemonic.get_seed(progress_bar=False)
+    node = Slip21Node(seed)
+    node.derive_path(path)
+    return node
