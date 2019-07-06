@@ -908,16 +908,25 @@ STATIC const mp_obj_type_t mod_trezorcrypto_secp256k1_context_type = {
     .locals_dict = (void *)&mod_trezorcrypto_secp256k1_context_locals_dict,
 };
 
+
+#define PROOF_BUFFER_SIZE (MAX(RANGEPROOF_SIGN_BUFFER_SIZE, SURJECTIONPROOF_STRUCT_SIZE))
+
+#if USE_PREALLOCATED_SECP256K1_ZKP_PROOF_BUFFER
+static uint8_t preallocated_secp256k1_zkp_proof_buf[PROOF_BUFFER_SIZE];  // ~8.26kB
+#endif
+
 /// def allocate_proof_buffer() -> bytearray
 ///     '''
 ///     Allocate a buffer, large enough for holding a range proof / reduced size
 ///     surjection proof.
 ///     '''
 STATIC mp_obj_t mod_trezorcrypto_secp256k1_zkp_allocate_proof_buffer() {
-  const size_t proof_buffer_size =
-      MAX(RANGEPROOF_SIGN_BUFFER_SIZE, SURJECTIONPROOF_STRUCT_SIZE);
-  uint8_t *proof_buffer = m_new(uint8_t, proof_buffer_size);
-  return mp_obj_new_bytearray_by_ref(proof_buffer_size, proof_buffer);
+#if USE_PREALLOCATED_SECP256K1_ZKP_PROOF_BUFFER
+  uint8_t *proof_buffer = preallocated_secp256k1_zkp_proof_buf;
+#else
+  uint8_t *proof_buffer = m_new(uint8_t, PROOF_BUFFER_SIZE);
+#endif
+  return mp_obj_new_bytearray_by_ref(PROOF_BUFFER_SIZE, proof_buffer);
 }
 
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(
