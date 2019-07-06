@@ -20,6 +20,8 @@
 #include "common.h"
 #include "py/objstr.h"
 
+#include "embed/extmod/trezorobj.h"
+
 #include "vendor/secp256k1-zkp/include/secp256k1.h"
 #include "vendor/secp256k1-zkp/include/secp256k1_ecdh.h"
 #include "vendor/secp256k1-zkp/include/secp256k1_preallocated.h"
@@ -46,6 +48,54 @@ void secp256k1_default_error_callback_fn(const char *str, void *data) {
 }
 
 /// package: trezorcrypto.secp256k1_zkp
+
+/// class RangeProofConfig:
+///     """
+///     Range proof configuration.
+///     """
+///
+typedef struct _mp_obj_range_proof_config_t {
+  mp_obj_base_t base;
+  uint64_t min_value;
+  size_t exponent;
+  size_t bits;
+} mp_obj_range_proof_config_t;
+
+/// def __init__(self, min_value: int, exponent: int, bits: int):
+///     """
+///     Initialize range proof configuration.
+///     """
+STATIC mp_obj_t mod_trezorcrypto_range_proof_config_make_new(
+    const mp_obj_type_t *type, size_t n_args, size_t n_kw,
+    const mp_obj_t *args) {
+  STATIC const mp_arg_t allowed_args[] = {
+      {MP_QSTR_min_value,
+       MP_ARG_REQUIRED | MP_ARG_KW_ONLY | MP_ARG_OBJ,
+       {.u_obj = mp_const_none}},
+      {MP_QSTR_exponent,
+       MP_ARG_REQUIRED | MP_ARG_KW_ONLY | MP_ARG_OBJ,
+       {.u_obj = mp_const_none}},
+      {MP_QSTR_bits,
+       MP_ARG_REQUIRED | MP_ARG_KW_ONLY | MP_ARG_OBJ,
+       {.u_obj = mp_const_none}},
+  };
+  mp_arg_val_t vals[MP_ARRAY_SIZE(allowed_args)];
+  mp_arg_parse_all_kw_array(n_args, n_kw, args, MP_ARRAY_SIZE(allowed_args),
+                            allowed_args, vals);
+
+  mp_obj_range_proof_config_t *o = m_new_obj(mp_obj_range_proof_config_t);
+  o->base.type = type;
+  o->min_value = trezor_obj_get_uint(vals[0].u_obj);
+  o->exponent = trezor_obj_get_uint(vals[1].u_obj);
+  o->bits = trezor_obj_get_uint(vals[2].u_obj);
+  return MP_OBJ_FROM_PTR(o);
+}
+
+STATIC const mp_obj_type_t mod_trezorcrypto_range_proof_config_type = {
+    {&mp_type_type},
+    .name = MP_QSTR_RangeProofConfig,
+    .make_new = mod_trezorcrypto_range_proof_config_make_new,
+};
 
 /// class Context:
 ///     """
@@ -474,8 +524,9 @@ STATIC void parse_commitment(const secp256k1_context *ctx,
   }
 }
 
-/// def rangeproof_sign(self, value: int, commit: bytes, blind: bytes,
-///                     nonce: bytes, message: bytes, extra_commit: bytes,
+/// def rangeproof_sign(self, config: RangeProofConfig, value: int,
+///                     commit: bytes, blind: bytes, nonce: bytes,
+///                     message: bytes, extra_commit: bytes,
 ///                     gen: bytes, proof_buffer: bytearray) -> memoryview:
 ///     '''
 ///     Return a range proof for specified value (as a memoryview of the
@@ -483,57 +534,56 @@ STATIC void parse_commitment(const secp256k1_context *ctx,
 ///     '''
 STATIC mp_obj_t mod_trezorcrypto_secp256k1_context_rangeproof_sign(
     size_t n_args, const mp_obj_t *args) {
-  // TODO: not sure about the constants values here -> move into keywords
-  const uint64_t VALUE_MIN = 1;
-  const int EXPONENT = 0;
-  const int BITS = 36;
-
   const secp256k1_context *ctx =
       mod_trezorcrypto_get_secp256k1_context(args[0]);
-  const uint64_t value = _mp_obj_get_uint64(args[1]);
+
+  mp_obj_range_proof_config_t *config = MP_OBJ_TO_PTR(args[1]);
+
+  const uint64_t value = _mp_obj_get_uint64(args[2]);
 
   secp256k1_pedersen_commitment commitment;
-  parse_commitment(ctx, &commitment, args[2]);
+  parse_commitment(ctx, &commitment, args[3]);
 
   mp_buffer_info_t blind;
-  mp_get_buffer_raise(args[3], &blind, MP_BUFFER_READ);
+  mp_get_buffer_raise(args[4], &blind, MP_BUFFER_READ);
   if (blind.len != 32) {
     mp_raise_ValueError("Invalid length of blinding factor");
   }
 
   mp_buffer_info_t nonce;
-  mp_get_buffer_raise(args[4], &nonce, MP_BUFFER_READ);
+  mp_get_buffer_raise(args[5], &nonce, MP_BUFFER_READ);
   if (nonce.len != 32) {
     mp_raise_ValueError("Invalid length of nonce");
   }
 
   mp_buffer_info_t message;
-  mp_get_buffer_raise(args[5], &message, MP_BUFFER_READ);
+  mp_get_buffer_raise(args[6], &message, MP_BUFFER_READ);
 
   mp_buffer_info_t extra_commit;
-  mp_get_buffer_raise(args[6], &extra_commit, MP_BUFFER_READ);
+  mp_get_buffer_raise(args[7], &extra_commit, MP_BUFFER_READ);
 
   secp256k1_generator generator;
-  parse_generator(ctx, &generator, args[7]);
+  parse_generator(ctx, &generator, args[8]);
 
   mp_buffer_info_t proof_buffer;
-  mp_get_buffer_raise(args[8], &proof_buffer, MP_BUFFER_WRITE);
+  mp_get_buffer_raise(args[9], &proof_buffer, MP_BUFFER_WRITE);
   if (proof_buffer.len < RANGEPROOF_SIGN_BUFFER_SIZE) {
     mp_raise_ValueError("Invalid length of output buffer");
   }
 
   size_t rangeproof_len = proof_buffer.len;
   if (!secp256k1_rangeproof_sign(
-          ctx, proof_buffer.buf, &rangeproof_len, VALUE_MIN, &commitment,
-          blind.buf, nonce.buf, EXPONENT, BITS, value, message.buf, message.len,
-          extra_commit.buf, extra_commit.len, &generator)) {
+          ctx, proof_buffer.buf, &rangeproof_len, config->min_value,
+          &commitment, blind.buf, nonce.buf, config->exponent, config->bits,
+          value, message.buf, message.len, extra_commit.buf, extra_commit.len,
+          &generator)) {
     mp_raise_ValueError("Rangeproof sign failed");
   }
   return mp_obj_new_memoryview('B', rangeproof_len, proof_buffer.buf);
 }
 
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(
-    mod_trezorcrypto_secp256k1_context_rangeproof_sign_obj, 9, 9,
+    mod_trezorcrypto_secp256k1_context_rangeproof_sign_obj, 10, 10,
     mod_trezorcrypto_secp256k1_context_rangeproof_sign);
 
 /// def rangeproof_rewind(self, conf_value: bytes, conf_asset: bytes,
@@ -908,11 +958,12 @@ STATIC const mp_obj_type_t mod_trezorcrypto_secp256k1_context_type = {
     .locals_dict = (void *)&mod_trezorcrypto_secp256k1_context_locals_dict,
 };
 
-
-#define PROOF_BUFFER_SIZE (MAX(RANGEPROOF_SIGN_BUFFER_SIZE, SURJECTIONPROOF_STRUCT_SIZE))
+#define PROOF_BUFFER_SIZE \
+  (MAX(RANGEPROOF_SIGN_BUFFER_SIZE, SURJECTIONPROOF_STRUCT_SIZE))
 
 #if USE_PREALLOCATED_SECP256K1_ZKP_PROOF_BUFFER
-static uint8_t preallocated_secp256k1_zkp_proof_buf[PROOF_BUFFER_SIZE];  // ~8.26kB
+static uint8_t
+    preallocated_secp256k1_zkp_proof_buf[PROOF_BUFFER_SIZE];  // ~8.26kB
 #endif
 
 /// def allocate_proof_buffer() -> bytearray
@@ -936,6 +987,8 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_0(
 STATIC const mp_rom_map_elem_t
     mod_trezorcrypto_secp256k1_zkp_globals_table[] = {
         {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_secp256k1_zkp)},
+        {MP_ROM_QSTR(MP_QSTR_RangeProofConfig),
+         MP_ROM_PTR(&mod_trezorcrypto_range_proof_config_type)},
         {MP_ROM_QSTR(MP_QSTR_Context),
          MP_ROM_PTR(&mod_trezorcrypto_secp256k1_context_type)},
         {MP_ROM_QSTR(MP_QSTR_allocate_proof_buffer),

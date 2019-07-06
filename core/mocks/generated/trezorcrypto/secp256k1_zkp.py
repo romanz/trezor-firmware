@@ -2,6 +2,18 @@ from typing import *
 
 
 # extmod/modtrezorcrypto/modtrezorcrypto-secp256k1_zkp.h
+class RangeProofConfig:
+    """
+    Range proof configuration.
+    """
+
+    def __init__(self, min_value: int, exponent: int, bits: int):
+        """
+        Initialize range proof configuration.
+        """
+
+
+# extmod/modtrezorcrypto/modtrezorcrypto-secp256k1_zkp.h
 class Context:
     """
     Owns a secp256k1 context.
@@ -75,8 +87,9 @@ class Context:
         Commit to specified integer value, using given 32-byte blinding factor.
         '''
 
-    def rangeproof_sign(self, value: int, commit: bytes, blind: bytes,
-                        nonce: bytes, message: bytes, extra_commit: bytes,
+    def rangeproof_sign(self, config: RangeProofConfig, value: int,
+                        commit: bytes, blind: bytes, nonce: bytes,
+                        message: bytes, extra_commit: bytes,
                         gen: bytes, proof_buffer: bytearray) -> memoryview:
         '''
         Return a range proof for specified value (as a memoryview of the

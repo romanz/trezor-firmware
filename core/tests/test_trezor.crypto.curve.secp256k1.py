@@ -168,6 +168,9 @@ class TestCryptoSecp256k1Zkp(Secp256k1Common, unittest.TestCase):
 
     def test_blind(self):
         proof_buffer = secp256k1_zkp.allocate_proof_buffer()
+        rangeproof_config = secp256k1_zkp.RangeProofConfig(min_value=1,
+                                                           exponent=0,
+                                                           bits=36)
 
         for n_bits in (1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 63):
             for _ in range(10):
@@ -185,8 +188,8 @@ class TestCryptoSecp256k1Zkp(Secp256k1Common, unittest.TestCase):
 
                 asset_message = asset + asset_blind
                 range_proof_view = self.impl.rangeproof_sign(
-                    value, conf_value, value_blind, nonce, asset_message, extra_commit,
-                    conf_asset, proof_buffer)
+                    rangeproof_config, value, conf_value, value_blind, nonce,
+                    asset_message, extra_commit, conf_asset, proof_buffer)
                 assert proof_buffer.startswith(range_proof_view)
 
                 asset_message_buf = proof_buffer  # reuse proof buffer
