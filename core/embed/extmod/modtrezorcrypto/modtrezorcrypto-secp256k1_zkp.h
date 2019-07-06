@@ -434,36 +434,6 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_3(
     mod_trezorcrypto_secp256k1_context_blind_generator_obj,
     mod_trezorcrypto_secp256k1_context_blind_generator);
 
-// TODO: this code is copied from modtrezorcrypto-monero.h - find a better way
-// to handle the conversion.
-static uint64_t _mp_obj_get_uint64(mp_const_obj_t arg) {
-  if (MP_OBJ_IS_SMALL_INT(arg)) {
-    return MP_OBJ_SMALL_INT_VALUE(arg);
-  } else if (MP_OBJ_IS_TYPE(arg, &mp_type_int)) {
-    byte buff[8];
-    uint64_t res = 0;
-    mp_obj_t *o = MP_OBJ_TO_PTR(arg);
-
-#if MICROPY_LONGINT_IMPL != MICROPY_LONGINT_IMPL_MPZ
-#error "MPZ supported only"
-#endif
-    mp_obj_int_to_bytes_impl(o, /*big_endian=*/true, /*len=*/8, buff);
-    for (int i = 0; i < 8; i++) {
-      res <<= i > 0 ? 8 : 0;
-      res |= (uint64_t)(buff[i] & 0xff);
-    }
-    return res;
-  } else {
-    if (MICROPY_ERROR_REPORTING == MICROPY_ERROR_REPORTING_TERSE) {
-      mp_raise_TypeError("can't convert to int");
-    } else {
-      nlr_raise(mp_obj_new_exception_msg_varg(&mp_type_TypeError,
-                                              "can't convert %s to int",
-                                              mp_obj_get_type_str(arg)));
-    }
-  }
-}
-
 STATIC void parse_generator(const secp256k1_context *ctx,
                             secp256k1_generator *generator, mp_obj_t obj) {
   mp_buffer_info_t gen;
@@ -486,7 +456,7 @@ STATIC mp_obj_t mod_trezorcrypto_secp256k1_context_pedersen_commit(
   const secp256k1_context *ctx =
       mod_trezorcrypto_get_secp256k1_context(args[0]);
 
-  const uint64_t value = _mp_obj_get_uint64(args[1]);
+  const uint64_t value = trezor_obj_get_uint64(args[1]);
 
   mp_buffer_info_t blind;
   mp_get_buffer_raise(args[2], &blind, MP_BUFFER_READ);
@@ -539,7 +509,7 @@ STATIC mp_obj_t mod_trezorcrypto_secp256k1_context_rangeproof_sign(
 
   mp_obj_range_proof_config_t *config = MP_OBJ_TO_PTR(args[1]);
 
-  const uint64_t value = _mp_obj_get_uint64(args[2]);
+  const uint64_t value = trezor_obj_get_uint64(args[2]);
 
   secp256k1_pedersen_commitment commitment;
   parse_commitment(ctx, &commitment, args[3]);
@@ -796,7 +766,7 @@ STATIC mp_obj_t mod_trezorcrypto_secp256k1_context_balance_blinds(
   const byte *asset_blinds_ptrs[values_len];
 
   for (size_t i = 0; i < values_len; ++i) {
-    values[i] = _mp_obj_get_uint64(values_objs[i]);
+    values[i] = trezor_obj_get_uint64(values_objs[i]);
   }
   for (size_t i = 0; i < values_len; ++i) {
     value_blinds_ptrs[i] = ((byte *)value_blinds.buf) + (i * 32);
