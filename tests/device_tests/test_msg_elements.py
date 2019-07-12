@@ -32,4 +32,4 @@ def test_elements_get_rangeproof_nonce(client):
         client=client, ecdh_pubkey=ecdh_pubkey, script_pubkey=script_pubkey
     )
     expected_nonce = "db7ba9bdbf381d4c48d5971edf58bd0ea403e94313994189a5995df26369bf51"
-    assert result.nonce.hex() == expected_nonce
+    assert result.hex() == expected_nonce

@@ -552,7 +552,7 @@ STATIC mp_obj_t mod_trezorcrypto_secp256k1_context_balance_blinds(
   }
 
   size_t num_of_inputs = mp_obj_get_int(args[4]);
-  if (num_of_inputs <= 0 || num_of_inputs >= values_len) {
+  if (num_of_inputs >= values_len) {
     mp_raise_ValueError("incorrect num_of_inputs");
   }
 
