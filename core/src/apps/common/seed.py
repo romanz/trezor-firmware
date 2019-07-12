@@ -6,6 +6,40 @@ from apps.common.request_passphrase import protect_by_passphrase
 
 allow = list
 
+if False:
+    from typing import Union
+
+
+class Slip21Node:
+    def __init__(self, seed: bytes = None):
+        if seed is not None:
+            self.data = hmac.Hmac(b"Symmetric key seed", seed, hashlib.sha512).digest()
+        else:
+            self.data = None
+
+    def derive_path(self, path: list) -> None:
+        for label in path:
+            h = hmac.Hmac(self.data[0:32], b"\x00", hashlib.sha512)
+            h.update(label)
+            self.data = h.digest()
+
+    def key(self) -> bytes:
+        return self.data[32:64]
+
+    def clone(self) -> "Slip21Node":  # forward reference (see PEP-484)
+        node = Slip21Node()
+        node.data = self.data
+        return node
+
+
+def derive_slip21_node_without_passphrase(path: list) -> Slip21Node:
+    if not storage.is_initialized():
+        raise Exception("Device is not initialized")
+    seed = mnemonic.get_seed(progress_bar=False)
+    node = Slip21Node(seed)
+    node.derive_path(path)
+    return node
+
 
 class Keychain:
     """
@@ -99,34 +133,3 @@ def remove_ed25519_prefix(pubkey: bytes) -> bytes:
 
 def _path_hardened(path: list) -> bool:
     return all(i & HARDENED for i in path)
-
-
-class Slip21Node:
-    def __init__(self, seed: bytes = None):
-        if seed is not None:
-            self.data = hmac.Hmac(b"Symmetric key seed", seed, hashlib.sha512).digest()
-        else:
-            self.data = None
-
-    def derive_path(self, path: list) -> None:
-        for label in path:
-            h = hmac.Hmac(self.data[0:32], b"\x00", hashlib.sha512)
-            h.update(label)
-            self.data = h.digest()
-
-    def key(self) -> bytes:
-        return self.data[32:64]
-
-    def clone(self) -> Slip21Node:
-        node = Slip21Node()
-        node.data = self.data
-        return node
-
-
-def derive_slip21_node_without_passphrase(path: list) -> Slip21Node:
-    if not storage.is_initialized():
-        raise Exception("Device is not initialized")
-    seed = mnemonic.get_seed(progress_bar=False)
-    node = Slip21Node(seed)
-    node.derive_path(path)
-    return node
