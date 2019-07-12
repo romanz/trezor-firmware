@@ -1,12 +1,14 @@
 import gc
+import ubinascii
 from micropython import const
 
-from trezor import utils
+from trezor import log, utils
 from trezor.crypto import base58, bip32, cashaddr, der
-from trezor.crypto.curve import secp256k1
+from trezor.crypto.curve import secp256k1, secp256k1_zkp
 from trezor.crypto.hashlib import blake256, sha256
 from trezor.messages import FailureType, InputScriptType, OutputScriptType
 from trezor.messages.SignTx import SignTx
+from trezor.messages.TxConfidentialAsset import TxConfidentialAsset
 from trezor.messages.TxInputType import TxInputType
 from trezor.messages.TxOutputBinType import TxOutputBinType
 from trezor.messages.TxOutputType import TxOutputType
@@ -28,6 +30,7 @@ from apps.wallet.sign_tx import (
 
 if not utils.BITCOIN_ONLY:
     from apps.wallet.sign_tx import decred, zcash
+    from apps.elements.helpers import ecdh
 
 # the number of bip32 levels used in a wallet (chain and address)
 _BIP32_WALLET_DEPTH = const(2)
@@ -51,11 +54,153 @@ class SigningError(ValueError):
 # ===
 
 
+def _hexlify(obj):
+    return ubinascii.hexlify(obj) if obj else b""
+
+
+class Confidential:
+
+    NO_BLIND = b"\x00" * 32
+
+    def __init__(
+        self,
+        amount: int,
+        confidential: TxConfidentialAsset,
+        nonce_pubkey: bytes,
+        nonce: bytes,
+        script_pubkey: bytes,
+        context: secp256k1_zkp.Context,
+    ):
+        assert amount is not None
+        assert confidential is not None
+        assert confidential.asset is not None
+        assert len(confidential.asset) == 32
+        assert bool(confidential.amount_blind) == bool(confidential.asset_blind)
+        if nonce_pubkey is not None:
+            assert len(nonce_pubkey) == 33
+        if nonce is not None:
+            assert len(nonce) == 32
+
+        self.amount = amount
+        self.asset = confidential.asset
+        self.amount_blind = confidential.amount_blind
+        self.asset_blind = confidential.asset_blind
+        self.nonce_pubkey = nonce_pubkey  # our pubkey
+        self.nonce = nonce  # for rangeproof generation
+        self.script_pubkey = script_pubkey  # for rangeproof generation
+
+        blind = self.NO_BLIND
+        if self.asset_blind is not None:
+            assert len(self.asset_blind) == 32
+            blind = self.asset_blind
+        self.generator = context.blind_generator(self.asset, blind)
+
+        blind = self.NO_BLIND
+        if self.amount_blind is not None:
+            assert len(self.amount_blind) == 32
+            blind = self.amount_blind
+        self.commitment = context.pedersen_commit(self.amount, blind, self.generator)
+        self.context = context
+
+    def __repr__(self):
+        return "Confidential(amount={}/{}, asset={}/{})".format(
+            self.amount,
+            _hexlify(self.amount_blind),
+            _hexlify(self.asset),
+            _hexlify(self.asset_blind),
+        )
+
+    def serialize_output(self, w):
+        if self.asset_blind is None:
+            writers.write_uint8(w, 1)  # explicit asset tag
+            writers.write_bytes(w, self.asset)
+        else:
+            writers.write_bytes(w, self.generator)
+
+        self.serialize_amount(w)
+
+        if self.amount_blind is None:
+            writers.write_uint8(w, 0)  # ECDH pubkey
+        else:
+            writers.write_bytes(w, self.nonce_pubkey)
+
+    def serialize_amount(self, w):
+        if self.amount_blind is None:
+            writers.write_tx_amount_elements(w, amount=self.amount)
+        else:
+            writers.write_bytes(w, self.commitment)
+
+    def rangeproof(self, config):
+        if not self.nonce:
+            return b""
+        return self.context.rangeproof_sign(
+            config,
+            self.amount,
+            self.commitment,
+            self.amount_blind,
+            self.nonce,
+            self.asset + self.asset_blind,
+            self.script_pubkey,
+            self.generator,
+        )
+
+
+def balance_blinds(confidential_inputs, confidential_outputs, context):
+    amount_in = sum(i.amount for i in confidential_inputs)
+    amount_out = sum(o.amount for o in confidential_inputs)
+    utils.ensure(amount_in == amount_out, "inputs != outputs")
+    amounts = []
+    amount_blinds = []
+    asset_blinds = []
+    n_inputs = 0
+    items = []
+
+    inputs_and_outputs = confidential_inputs + confidential_outputs
+    for index, item in enumerate(inputs_and_outputs):
+        if item.amount_blind and item.asset_blind:
+            amounts.append(item.amount)
+            amount_blinds.append(bytes(item.amount_blind))
+            asset_blinds.append(bytes(item.asset_blind))
+            n_inputs += index < len(confidential_inputs)
+            items.append(item)
+
+    if not items:
+        return  # no need to balance blinds - all values are explicit.
+
+    amounts = tuple(amounts)
+    amount_blinds = bytearray(b"".join(amount_blinds))
+    asset_blinds = b"".join(asset_blinds)
+
+    balanced = True
+    context.balance_blinds(amounts, amount_blinds, asset_blinds, n_inputs)
+    utils.ensure(len(amount_blinds) == 32 * len(items))
+    for i, item in enumerate(items):
+        balanced_amount_blind = amount_blinds[32 * i : 32 * (i + 1)]
+        if item.amount_blind != balanced_amount_blind:
+            log.warning(
+                __name__,
+                "unbalanced amount blind #%d %s => %s",
+                i,
+                _hexlify(item.amount_blind),
+                _hexlify(balanced_amount_blind),
+            )
+            item.amount_blind = balanced_amount_blind
+            balanced = False
+
+    commitments = tuple(item.commitment for item in inputs_and_outputs)
+    context.verify_balance(commitments, len(confidential_inputs))
+
+    if not balanced:
+        raise SigningError(FailureType.DataError, "unbalanced amount blinds")
+
+
 # Phase 1
 # - check inputs, previous transactions, and outputs
 # - ask for confirmations
 # - check fee
-async def check_tx_fee(tx: SignTx, keychain: seed.Keychain):
+async def check_tx_fee(
+    tx: SignTx, keychain: seed.Keychain, context: secp256k1_zkp.Context
+):
     coin = coins.by_name(tx.coin_name)
 
     # h_first is used to make sure the inputs and outputs streamed in Phase 1
@@ -96,15 +241,31 @@ async def check_tx_fee(tx: SignTx, keychain: seed.Keychain):
     tx_req = TxRequest()
     tx_req.details = TxRequestDetailsType()
 
+    confidential_inputs = []
+    confidential_outputs = []
+
     for i in range(tx.inputs_count):
         progress.advance()
         # STAGE_REQUEST_1_INPUT
         txi = await helpers.request_tx_input(tx_req, i)
+        if coin.confidential_assets:
+            confidential_inputs.append(
+                Confidential(
+                    amount=txi.amount,
+                    confidential=txi.confidential,
+                    nonce_pubkey=None,
+                    script_pubkey=None,
+                    nonce=None,
+                    context=context,
+                )
+            )
+
         wallet_path = input_extract_wallet_path(txi, wallet_path)
         writers.write_tx_input_check(h_first, txi)
         weight.add_input(txi)
         hash143.add_prevouts(txi)  # all inputs are included (non-segwit as well)
         hash143.add_sequence(txi)
+        hash143.add_issuance(txi)  # TODO: support also non-Elements hashing
 
         if not addresses.validate_full_path(txi.address_n, coin, txi.script_type):
             await helpers.confirm_foreign_address(txi.address_n)
@@ -112,10 +273,10 @@ async def check_tx_fee(tx: SignTx, keychain: seed.Keychain):
         if txi.multisig:
             multifp.add(txi.multisig)
 
-        if txi.script_type in (
-            InputScriptType.SPENDWITNESS,
-            InputScriptType.SPENDP2SHWITNESS,
-        ):
+        if (
+            txi.script_type
+            in (InputScriptType.SPENDWITNESS, InputScriptType.SPENDP2SHWITNESS)
+        ) or coin.confidential_assets:
             if not coin.segwit:
                 raise SigningError(
                     FailureType.DataError, "Segwit not enabled on this coin"
@@ -163,6 +324,30 @@ async def check_tx_fee(tx: SignTx, keychain: seed.Keychain):
         txo = await helpers.request_tx_output(tx_req, o)
         txo_bin.amount = txo.amount
         txo_bin.script_pubkey = output_derive_script(txo, coin, keychain)
+
+        if coin.confidential_assets:
+            txo_bin.confidential = txo.confidential
+            peer_pubkey = output_nonce_pubkey(txo, coin)
+            if peer_pubkey is not None:
+                our_privkey = txo.confidential.nonce_privkey  # TODO: randomize if None
+                our_pubkey = context.publickey(our_privkey)
+                nonce = ecdh(our_privkey=our_privkey, peer_pubkey=peer_pubkey)
+            else:
+                our_pubkey = None
+                nonce = None
+
+            # Asset, value and ECDH pubkey must be signed
+            confidential_outputs.append(
+                Confidential(
+                    amount=txo.amount,
+                    confidential=txo.confidential,
+                    nonce_pubkey=our_pubkey,
+                    nonce=nonce,
+                    script_pubkey=txo_bin.script_pubkey,
+                    context=context,
+                )
+            )
+
         weight.add_output(txo_bin.script_pubkey)
 
         if change_out == 0 and output_is_change(txo, wallet_path, segwit_in, multifp):
@@ -189,8 +374,9 @@ async def check_tx_fee(tx: SignTx, keychain: seed.Keychain):
             tx_req.serialized = tx_ser
             hash143.set_last_output_bytes(w_txo_bin)
 
-        writers.write_tx_output(h_first, txo_bin)
-        hash143.add_output(txo_bin)
+        confidential = confidential_outputs[o]
+        writers.write_tx_output(h_first, txo_bin, confidential=confidential)
+        hash143.add_output(txo_bin, confidential=confidential)
         total_out += txo_bin.amount
 
     fee = total_in - total_out
@@ -216,25 +402,37 @@ async def check_tx_fee(tx: SignTx, keychain: seed.Keychain):
     if not utils.BITCOIN_ONLY and coin.decred:
         hash143.add_locktime_expiry(tx)
 
-    return h_first, hash143, segwit, total_in, wallet_path
+    balance_blinds(confidential_inputs, confidential_outputs, context)
+    return (
+        h_first,
+        hash143,
+        segwit,
+        total_in,
+        wallet_path,
+        [confidential_inputs, confidential_outputs],
+    )
 
 
-async def sign_tx(tx: SignTx, keychain: seed.Keychain):
+async def sign_tx(tx: SignTx, keychain: seed.Keychain, context: secp256k1_zkp.Context):
     tx = helpers.sanitize_sign_tx(tx)
-
+    coin = coins.by_name(tx.coin_name)
     progress.init(tx.inputs_count, tx.outputs_count)
 
     # Phase 1
 
-    h_first, hash143, segwit, authorized_in, wallet_path = await check_tx_fee(
-        tx, keychain
-    )
+    (
+        h_first,
+        hash143,
+        segwit,
+        authorized_in,
+        wallet_path,
+        (confidential_inputs, confidential_outputs,),
+    ) = await check_tx_fee(tx, keychain, context)
 
     # Phase 2
     # - sign inputs
     # - check that nothing changed
 
-    coin = coins.by_name(tx.coin_name)
     tx_ser = TxRequestSerializedType()
 
     txo_bin = TxOutputBinType()
@@ -501,18 +699,27 @@ async def sign_tx(tx: SignTx, keychain: seed.Keychain):
         txo = await helpers.request_tx_output(tx_req, o)
         txo_bin.amount = txo.amount
         txo_bin.script_pubkey = output_derive_script(txo, coin, keychain)
+        if coin.confidential_assets:
+            txo_bin.confidential = txo.confidential
 
         # serialize output
         w_txo_bin = writers.empty_bytearray(5 + 8 + 5 + len(txo_bin.script_pubkey) + 4)
         if o == 0:  # serializing first output => prepend outputs count
             writers.write_varint(w_txo_bin, tx.outputs_count)
-        writers.write_tx_output(w_txo_bin, txo_bin)
+
+        writers.write_tx_output(
+            w_txo_bin, txo_bin, confidential=confidential_outputs[o]
+        )
 
         tx_ser.signature_index = None
         tx_ser.signature = None
         tx_ser.serialized_tx = w_txo_bin
 
         tx_req.serialized = tx_ser
+
+    if coin.confidential_assets:
+        # In Elements, nLockTime is serialized before the witness
+        writers.write_uint32(tx_ser.serialized_tx, tx.lock_time)
 
     any_segwit = True in segwit.values()
 
@@ -537,6 +744,7 @@ async def sign_tx(tx: SignTx, keychain: seed.Keychain):
                 txi,
                 addresses.ecdsa_hash_pubkey(key_sign_pub, coin),
                 get_hash_type(coin),
+                confidential=confidential_inputs[i],
             )
 
             signature = ecdsa_sign(key_sign, hash143_hash)
@@ -553,7 +761,19 @@ async def sign_tx(tx: SignTx, keychain: seed.Keychain):
                     signature, key_sign_pub, get_hash_type(coin)
                 )
 
-            tx_ser.serialized_tx = witness
+            if coin.confidential_assets:
+                # In Elements, there are more input-related witnesses
+                issuance_amount_rangeproof = bytearray([0])
+                inflation_keys_rangeproof = bytearray([0])
+                pegin_witness = bytearray([0])
+                tx_ser.serialized_tx = (
+                    issuance_amount_rangeproof
+                    + inflation_keys_rangeproof
+                    + witness
+                    + pegin_witness
+                )
+            else:
+                tx_ser.serialized_tx = witness
             tx_ser.signature_index = i
             tx_ser.signature = signature
         elif any_segwit:
@@ -563,23 +783,44 @@ async def sign_tx(tx: SignTx, keychain: seed.Keychain):
 
         tx_req.serialized = tx_ser
 
-    writers.write_uint32(tx_ser.serialized_tx, tx.lock_time)
+    if coin.confidential_assets:
+        # In Elements, each blinded output should have range and surjection proofs.
+        config = secp256k1_zkp.RangeProofConfig(min_value=1, exponent=0, bits=32)
+        for o in range(tx.outputs_count):
+            # The device must generate the range proof (since it must use the correct nonce - otherwise the recepient won't be able to spend the output).
+            rangeproof = confidential_outputs[o].rangeproof(config)
 
-    if not utils.BITCOIN_ONLY and tx.overwintered:
-        if tx.version == 3:
-            writers.write_uint32(tx_ser.serialized_tx, tx.expiry)  # expiryHeight
-            writers.write_varint(tx_ser.serialized_tx, 0)  # nJoinSplit
-        elif tx.version == 4:
-            writers.write_uint32(tx_ser.serialized_tx, tx.expiry)  # expiryHeight
-            writers.write_uint64(tx_ser.serialized_tx, 0)  # valueBalance
-            writers.write_varint(tx_ser.serialized_tx, 0)  # nShieldedSpend
-            writers.write_varint(tx_ser.serialized_tx, 0)  # nShieldedOutput
-            writers.write_varint(tx_ser.serialized_tx, 0)  # nJoinSplit
-        else:
-            raise SigningError(
-                FailureType.DataError,
-                "Unsupported version for overwintered transaction",
-            )
+            # The surjection proof is computed on-host.
+            writers.write_varint(tx_ser.serialized_tx, 0)
+            writers.write_varint(tx_ser.serialized_tx, len(rangeproof))
+            # Stream everything except the rangeproof
+            await helpers.request_tx_output(tx_req, o)
+
+            tx_ser.serialized_tx = rangeproof  # memoryview
+            tx_ser.signature_index = None
+            tx_ser.signature = None
+            tx_req.serialized = tx_ser
+            await helpers.request_tx_output(tx_req, o)  # Stream only the rangeproof
+
+            tx_ser.serialized_tx = writers.empty_bytearray(1 + 5)
+            tx_req.serialized = tx_ser
+    else:
+        writers.write_uint32(tx_ser.serialized_tx, tx.lock_time)
+        if not utils.BITCOIN_ONLY and tx.overwintered:
+            if tx.version == 3:
+                writers.write_uint32(tx_ser.serialized_tx, tx.expiry)  # expiryHeight
+                writers.write_varint(tx_ser.serialized_tx, 0)  # nJoinSplit
+            elif tx.version == 4:
+                writers.write_uint32(tx_ser.serialized_tx, tx.expiry)  # expiryHeight
+                writers.write_uint64(tx_ser.serialized_tx, 0)  # valueBalance
+                writers.write_varint(tx_ser.serialized_tx, 0)  # nShieldedSpend
+                writers.write_varint(tx_ser.serialized_tx, 0)  # nShieldedOutput
+                writers.write_varint(tx_ser.serialized_tx, 0)  # nJoinSplit
+            else:
+                raise SigningError(
+                    FailureType.DataError,
+                    "Unsupported version for overwintered transaction",
+                )
 
     await helpers.request_tx_finish(tx_req)
 
@@ -684,7 +925,9 @@ def get_tx_header(coin: coininfo.CoinInfo, tx: SignTx, segwit: bool = False):
         if tx.timestamp:
             writers.write_uint32(w_txi, tx.timestamp)
     if segwit:
-        writers.write_varint(w_txi, 0x00)  # segwit witness marker
+        if not coin.confidential_assets:
+            # Elements doesn't use witness marker, only flag
+            writers.write_varint(w_txi, 0x00)  # segwit witness marker
         writers.write_varint(w_txi, 0x01)  # segwit witness flag
     writers.write_varint(w_txi, tx.inputs_count)
     return w_txi
@@ -693,11 +936,32 @@ def get_tx_header(coin: coininfo.CoinInfo, tx: SignTx, segwit: bool = False):
 # TX Outputs
 # ===
 
+NONCE_PUBKEY_BYTES_TO_SKIP = 33
+
+
+def output_nonce_pubkey(o: TxOutputType, coin: coininfo.CoinInfo) -> bytes:
+    if not coin.confidential_assets or not o.address:
+        return None
+
+    raw_address = base58.decode_check(o.address, coin.b58_hash)
+    confidential_prefix = coin.confidential_assets["address_prefix"]
+    if not address_type.check(confidential_prefix, raw_address):
+        return None
+    raw_address = address_type.strip(confidential_prefix, raw_address)
+
+    if address_type.check(coin.address_type, raw_address):
+        raw_address = address_type.strip(coin.address_type, raw_address)
+    elif address_type.check(coin.address_type_p2sh, raw_address):
+        raw_address = address_type.strip(coin.address_type_p2sh, raw_address)
+    else:
+        return None
+
+    return raw_address[:NONCE_PUBKEY_BYTES_TO_SKIP]
+
 
 def output_derive_script(
     o: TxOutputType, coin: coininfo.CoinInfo, keychain: seed.Keychain
 ) -> bytes:
-
     if o.script_type == OutputScriptType.PAYTOOPRETURN:
         # op_return output
         if o.amount != 0:
@@ -713,6 +977,9 @@ def output_derive_script(
         o.address = get_address_for_change(o, coin, keychain)
     else:
         if not o.address:
+            if coin.confidential_assets:
+                # An empty address marks explicit fee output in Elements
+                return b""
             raise SigningError(FailureType.DataError, "Missing address")
 
     if coin.bech32_prefix and o.address.startswith(coin.bech32_prefix):
@@ -735,9 +1002,16 @@ def output_derive_script(
     else:
         raw_address = base58.decode_check(o.address, coin.b58_hash)
 
+    to_skip = 0
+    if coin.confidential_assets:
+        confidential_prefix = coin.confidential_assets["address_prefix"]
+        if address_type.check(confidential_prefix, raw_address):
+            raw_address = address_type.strip(confidential_prefix, raw_address)
+            to_skip = NONCE_PUBKEY_BYTES_TO_SKIP
+
     if address_type.check(coin.address_type, raw_address):
         # p2pkh
-        pubkeyhash = address_type.strip(coin.address_type, raw_address)
+        pubkeyhash = address_type.strip(coin.address_type, raw_address)[to_skip:]
         script = scripts.output_script_p2pkh(pubkeyhash)
         if coin.bip115:
             script += scripts.script_replay_protection_bip115(
@@ -747,7 +1021,7 @@ def output_derive_script(
 
     elif address_type.check(coin.address_type_p2sh, raw_address):
         # p2sh
-        scripthash = address_type.strip(coin.address_type_p2sh, raw_address)
+        scripthash = address_type.strip(coin.address_type_p2sh, raw_address)[to_skip:]
         script = scripts.output_script_p2sh(scripthash)
         if coin.bip115:
             script += scripts.script_replay_protection_bip115(

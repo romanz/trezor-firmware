@@ -2,7 +2,7 @@ from . import messages
 from .tools import expect
 
 
-@expect(messages.ElementsRangeProofNonce)
+@expect(messages.ElementsRangeProofNonce, field="nonce")
 def get_rangeproof_nonce(client, ecdh_pubkey, script_pubkey):
     return client.call(
         messages.ElementsGetRangeProofNonce(

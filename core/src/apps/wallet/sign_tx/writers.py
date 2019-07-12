@@ -10,6 +10,7 @@ from apps.common.writers import (  # noqa: F401
     write_uint8,
     write_uint16_le,
     write_uint32_le,
+    write_uint64_be,
     write_uint64_le,
 )
 
@@ -52,8 +53,21 @@ def write_tx_input_decred_witness(w, i: TxInputType):
     write_bytes(w, i.script_sig)
 
 
-def write_tx_output(w, o: TxOutputBinType):
-    write_uint64(w, o.amount)
+def write_tx_amount_elements(w, amount: int):
+    write_uint8(w, 1)
+    write_uint64_be(w, amount)
+
+
+def write_tx_output(w, o: TxOutputBinType, confidential=None):
+    if o.confidential is not None:
+        ensure(o.amount == confidential.amount)
+        ensure(o.confidential.asset == confidential.asset)
+        # serialize asset (currently only L-BTC)
+        confidential.serialize_output(w)
+
+    else:
+        write_uint64(w, o.amount)
+
     if o.decred_script_version is not None:
         write_uint16(w, o.decred_script_version)
     write_varint(w, len(o.script_pubkey))
