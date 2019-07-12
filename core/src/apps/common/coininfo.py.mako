@@ -27,6 +27,7 @@ class CoinInfo:
         bip115: bool,
         decred: bool,
         curve_name: str,
+        confidential_assets: bool,
     ):
         self.coin_name = coin_name
         self.coin_shortcut = coin_shortcut
@@ -46,6 +47,7 @@ class CoinInfo:
         self.bip115 = bip115
         self.decred = decred
         self.curve_name = curve_name
+        self.confidential_assets = confidential_assets
         if curve_name == "secp256k1-groestl":
             self.b58_hash = groestl512d_32
             self.sign_hash_double = False
@@ -96,6 +98,7 @@ ATTRIBUTES = (
     ("bip115", bool),
     ("decred", bool),
     ("curve_name", lambda r: repr(r.replace("_", "-"))),
+    ("confidential_assets", bool),
 )
 %>\
 def by_name(name: str) -> CoinInfo:

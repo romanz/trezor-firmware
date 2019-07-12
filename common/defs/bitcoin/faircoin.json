@@ -4,7 +4,7 @@
   "coin_label": "FairCoin",
   "website": "https://www.faircoin.world",
   "github": "https://github.com/faircoin/faircoin",
-  "maintainer": "Santi Noreña <santi@criptomart.net>",
+  "maintainer": "Santi Nore\u00f1a <santi@criptomart.net>",
   "curve_name": "secp256k1",
   "address_type": 95,
   "address_type_p2sh": 36,
@@ -35,5 +35,6 @@
   "bitcore": [],
   "blockbook": [],
   "cooldown": 100,
-  "consensus_branch_id": null
+  "consensus_branch_id": null,
+  "confidential_assets": false
 }
