@@ -251,6 +251,7 @@ from .TezosSignedTx import TezosSignedTx
 from .TezosTransactionOp import TezosTransactionOp
 from .TransactionType import TransactionType
 from .TxAck import TxAck
+from .TxConfidentialAsset import TxConfidentialAsset
 from .TxInputType import TxInputType
 from .TxOutputBinType import TxOutputBinType
 from .TxOutputType import TxOutputType
