@@ -42,6 +42,53 @@ def output_script_p2pkh(pubkeyhash: bytes) -> bytearray:
     return s
 
 
+def input_script_csv_multisig(
+    user_sig: bytes, server_sig: bytes, sighash: int
+) -> bytearray:
+    signatures = [user_sig]
+    if server_sig:
+        signatures.append(server_sig)
+
+    w = empty_bytearray(sum((5 + len(sig) + 1) for sig in signatures))
+    for sig in signatures:
+        append_signature(w, sig, sighash)
+    return w
+
+
+def output_script_csv_multisig(
+    user_pubkey: bytes, server_pubkey: bytes, csv_blocks: int
+) -> bytearray:
+    """
+    The script we create is:
+        OP_DEPTH OP_1SUB
+        OP_IF
+          # The stack contains the main and and recovery signatures.
+          # Check the main signature then fall through to check the recovery.
+          <server_pubkey> OP_CHECKSIGVERIFY
+        OP_ELSE
+          # The stack contains only the recovery signature.
+          # Check the CSV time has expired then fall though as above.
+          <csv_blocks> OP_CHECKSEQUENCEVERIFY OP_DROP
+        OP_ENDIF
+        # Check the recovery signature
+        <user_pubkey> OP_CHECKSIG
+    """
+    s = empty_bytearray(3 + len(server_pubkey) + 2 + 5 + 3 + len(user_pubkey) + 1)
+    s.append(0x74)  # OP_DEPTH
+    s.append(0x8C)  # OP_1SUB
+    s.append(0x63)  # OP_IF
+    write_bytes(s, server_pubkey)
+    s.append(0xAD)  # OP_CHECKSIGVERIFY
+    s.append(0x67)  # OP_ELSE
+    write_scriptnum(s, csv_blocks)
+    s.append(0xB2)  # OP_CHECKSEQUENCEVERIFY
+    s.append(0x75)  # OP_DROP
+    s.append(0x68)  # OP_ENDIF
+    write_bytes(s, user_pubkey)
+    s.append(0xAC)  # OP_CHECKSIG
+    return s
+
+
 def output_script_p2sh(scripthash: bytes) -> bytearray:
     # A9 14 <scripthash> 87
     utils.ensure(len(scripthash) == 20)
@@ -176,7 +223,13 @@ def witness_p2wsh(
 
     # length of the redeem script
     pubkeys = multisig_get_pubkeys(multisig)
-    redeem_script_length = output_script_multisig_length(pubkeys, multisig.m)
+    if multisig.csv is None:
+        redeem_script_length = output_script_multisig_length(pubkeys, multisig.m)
+    else:
+        redeem_script = output_script_csv_multisig(
+            user_pubkey=pubkeys[0], server_pubkey=pubkeys[1], csv_blocks=multisig.csv
+        )
+        redeem_script_length = len(redeem_script)
 
     # length of the result
     total_length = 1 + 1  # number of items, version
@@ -194,7 +247,10 @@ def witness_p2wsh(
 
     # redeem script
     write_varint(w, redeem_script_length)
-    output_script_multisig(pubkeys, multisig.m, w)
+    if multisig.csv is None:
+        output_script_multisig(pubkeys, multisig.m, w)
+    else:
+        w.extend(redeem_script)
 
     return w
 

@@ -22,12 +22,14 @@ class MultisigRedeemScriptType(p.MessageType):
         m: int = None,
         nodes: List[HDNodeType] = None,
         address_n: List[int] = None,
+        csv: int = None,
     ) -> None:
         self.pubkeys = pubkeys if pubkeys is not None else []
         self.signatures = signatures if signatures is not None else []
         self.m = m
         self.nodes = nodes if nodes is not None else []
         self.address_n = address_n if address_n is not None else []
+        self.csv = csv
 
     @classmethod
     def get_fields(cls) -> Dict:
@@ -37,4 +39,5 @@ class MultisigRedeemScriptType(p.MessageType):
             3: ('m', p.UVarintType, 0),
             4: ('nodes', HDNodeType, p.FLAG_REPEATED),
             5: ('address_n', p.UVarintType, p.FLAG_REPEATED),
+            6: ('csv', p.UVarintType, 0),
         }

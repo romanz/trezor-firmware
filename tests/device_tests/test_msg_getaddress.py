@@ -19,7 +19,7 @@ import pytest
 from trezorlib import btc, ckd_public as bip32, messages as proto
 from trezorlib.tools import H_, CallException, parse_path
 
-from .common import MNEMONIC12, TrezorTest
+from .common import MNEMONIC12, MNEMONIC_ALLALLALL, TrezorTest
 
 
 def getmultisig(chain, nr, xpubs, signatures=[b"", b"", b""]):
@@ -122,6 +122,124 @@ class TestMsgGetaddress(TrezorTest):
             btc.get_address(client, "Elements", parse_path("m/44'/1'/0'/0/0"))
             == "2dpWh6jbhAowNsQ5agtFzi7j6nKscj6UnEr"
         )
+
+    @pytest.mark.setup_client(mnemonic=MNEMONIC_ALLALLALL)
+    def test_addr_multisig_csv(self, client):
+        xpubs = []
+        for n in range(1, 3):
+            node = btc.get_public_node(
+                client=client, n=parse_path("49'/1'/%d'" % n), coin_name="Regtest"
+            )
+            xpubs.append(node.xpub)
+
+        for nr in range(1, 3):
+            multisig = getmultisig(0, 0, xpubs=xpubs, signatures=[b"", b""])
+            multisig.csv = 6 * 24 * 30  # 1 month delay
+            addr = btc.get_address(
+                client,
+                "Regtest",
+                parse_path("49'/1'/%d'/0/0" % nr),
+                show_display=False,
+                script_type=proto.InputScriptType.SPENDP2SHWITNESS,
+                multisig=multisig,
+            )
+            assert addr == "2N5pRnAhtciuGCKuLceTot67JPDPxCHhSbF"
+
+    @pytest.mark.setup_client(mnemonic=MNEMONIC_ALLALLALL)
+    def test_send_multisig_csv(self, client):
+        nodes = [
+            btc.get_public_node(client, parse_path("49'/1'/%d'" % i)).node
+            for i in range(1, 4)
+        ]
+
+        multisig = proto.MultisigRedeemScriptType(
+            nodes=nodes, address_n=[0, 0], signatures=[b"", b""], m=2, csv=6 * 24 * 30
+        )
+
+        inp1 = proto.TxInputType(
+            address_n=parse_path("49'/1'/1'/0/0"),
+            prev_hash=bytes.fromhex(
+                "36522a7c09132054906f2a8947e606aee4cf5980b5b68c41182d4be0fb96701b"
+            ),
+            prev_index=0,
+            script_type=proto.InputScriptType.SPENDP2SHWITNESS,
+            multisig=multisig,
+            amount=20000000,
+        )
+
+        out1 = proto.TxOutputType(
+            address="mquGprvwwWnBnDHx28BmCzVN16mUe8dmeY",
+            amount=19000000,
+            script_type=proto.OutputScriptType.PAYTOADDRESS,
+        )
+
+        with client:
+            client.set_expected_responses(
+                [
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXOUTPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.ButtonRequest(code=proto.ButtonRequestType.ConfirmOutput),
+                    proto.ButtonRequest(code=proto.ButtonRequestType.SignTx),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXOUTPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(request_type=proto.RequestType.TXFINISHED),
+                ]
+            )
+            signatures, _ = btc.sign_tx(
+                client, "Regtest", [inp1], [out1], prev_txes=None
+            )
+            # store signature
+            inp1.multisig.signatures[0] = signatures[0]
+            # sign with 2nd key
+            inp1.address_n[2] = H_(2)
+            client.set_expected_responses(
+                [
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXOUTPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.ButtonRequest(code=proto.ButtonRequestType.ConfirmOutput),
+                    proto.ButtonRequest(code=proto.ButtonRequestType.SignTx),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXOUTPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(request_type=proto.RequestType.TXFINISHED),
+                ]
+            )
+            _, serialized_tx = btc.sign_tx(
+                client, "Regtest", [inp1], [out1], prev_txes=None
+            )
+            with open("/tmp/test.txn", "w") as f:
+                f.write(serialized_tx.hex())
 
     def test_multisig(self, client):
         xpubs = []

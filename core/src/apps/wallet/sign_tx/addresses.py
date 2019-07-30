@@ -9,6 +9,7 @@ from apps.common import HARDENED, address_type, paths
 from apps.common.coininfo import CoinInfo
 from apps.wallet.sign_tx.multisig import multisig_get_pubkeys, multisig_pubkey_index
 from apps.wallet.sign_tx.scripts import (
+    output_script_csv_multisig,
     output_script_multisig,
     output_script_native_p2wpkh_or_p2wsh,
 )
@@ -43,7 +44,7 @@ def get_address(
                 )
 
             pubkeys = multisig_get_pubkeys(multisig)
-            address = address_multisig_p2sh(pubkeys, multisig.m, coin)
+            address = address_multisig_p2sh(pubkeys, multisig.m, coin, multisig.csv)
             if coin.cashaddr_prefix is not None:
                 address = address_to_cashaddr(address, coin)
             return address
@@ -88,12 +89,18 @@ def get_address(
         raise AddressError(FailureType.ProcessError, "Invalid script type")
 
 
-def address_multisig_p2sh(pubkeys: List[bytes], m: int, coin: CoinInfo):
+def address_multisig_p2sh(pubkeys: List[bytes], m: int, coin: CoinInfo, csv: int):
     if coin.address_type_p2sh is None:
         raise AddressError(
             FailureType.ProcessError, "Multisig not enabled on this coin"
         )
-    redeem_script = output_script_multisig(pubkeys, m)
+    if csv is None:
+        redeem_script = output_script_multisig(pubkeys, m)
+    else:
+        ensure(len(pubkeys) == 2)
+        redeem_script = output_script_csv_multisig(
+            user_pubkey=pubkeys[0], server_pubkey=pubkeys[1], csv_blocks=csv
+        )
     redeem_script_hash = coin.script_hash(redeem_script)
     return address_p2sh(redeem_script_hash, coin)
 
