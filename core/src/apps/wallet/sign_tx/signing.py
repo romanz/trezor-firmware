@@ -823,7 +823,9 @@ def input_derive_script(
             # p2wsh in p2sh
             pubkeys = multisig.multisig_get_pubkeys(i.multisig)
             witness_script_hasher = utils.HashWriter(sha256())
-            scripts.output_script_multisig(pubkeys, i.multisig.m, witness_script_hasher)
+            scripts.output_script_multisig(
+                pubkeys, i.multisig.m, w=witness_script_hasher, csv=i.multisig.csv
+            )
             witness_script_hash = witness_script_hasher.get_digest()
             return scripts.input_script_p2wsh_in_p2sh(witness_script_hash)
 

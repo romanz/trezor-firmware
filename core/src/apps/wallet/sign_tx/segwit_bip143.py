@@ -84,9 +84,8 @@ class Bip143:
     def derive_script_code(self, txi: TxInputType, pubkeyhash: bytes) -> bytearray:
 
         if txi.multisig:
-            return output_script_multisig(
-                multisig_get_pubkeys(txi.multisig), txi.multisig.m
-            )
+            pubkeys = multisig_get_pubkeys(txi.multisig)
+            return output_script_multisig(pubkeys, txi.multisig.m, csv=txi.multisig.csv)
 
         p2pkh = (
             txi.script_type == InputScriptType.SPENDWITNESS
