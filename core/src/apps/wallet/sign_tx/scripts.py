@@ -8,6 +8,7 @@ from apps.wallet.sign_tx.writers import (
     write_bytes,
     write_op_push,
     write_scriptnum,
+    write_uint8,
     write_varint,
 )
 
@@ -172,11 +173,13 @@ def witness_p2wsh(
     signatures = [s for s in signatures if s]
 
     # witness program + signatures + redeem script
-    num_of_witness_items = 1 + len(signatures) + 1
+    num_of_witness_items = len(signatures) + 1
+    if multisig.csv is None:
+        num_of_witness_items += 1  # OP_FALSE (for OP_CHECKMULTISIG)
 
     # length of the redeem script
     pubkeys = multisig_get_pubkeys(multisig)
-    redeem_script_length = output_script_multisig_length(pubkeys, multisig.m)
+    redeem_script_length = output_script_multisig_length(pubkeys, csv=multisig.csv)
 
     # length of the result
     total_length = 1 + 1  # number of items, OP_FALSE
@@ -187,17 +190,18 @@ def witness_p2wsh(
     w = empty_bytearray(total_length)
 
     write_varint(w, num_of_witness_items)
-    # Starts with OP_FALSE because of an old OP_CHECKMULTISIG bug, which
-    # consumes one additional item on the stack:
-    # https://bitcoin.org/en/developer-guide#standard-transactions
-    write_varint(w, 0)
+    if multisig.csv is None:
+        # Starts with OP_FALSE because of an old OP_CHECKMULTISIG bug, which
+        # consumes one additional item on the stack:
+        # https://bitcoin.org/en/developer-guide#standard-transactions
+        write_varint(w, 0)
 
     for s in signatures:
         append_signature(w, s, sighash)  # size of the witness included
 
     # redeem script
     write_varint(w, redeem_script_length)
-    output_script_multisig(pubkeys, multisig.m, w)
+    output_script_multisig(pubkeys, multisig.m, w=w, csv=multisig.csv)
 
     return w
 
@@ -222,7 +226,7 @@ def input_script_multisig(
 
     # length of the redeem script
     pubkeys = multisig_get_pubkeys(multisig)
-    redeem_script_length = output_script_multisig_length(pubkeys, multisig.m)
+    redeem_script_length = output_script_multisig_length(pubkeys, csv=multisig.csv)
 
     # length of the result
     total_length = 0
@@ -234,7 +238,7 @@ def input_script_multisig(
 
     w = empty_bytearray(total_length)
 
-    if not coin.decred:
+    if not coin.decred and multisig.csv is None:
         # Starts with OP_FALSE because of an old OP_CHECKMULTISIG bug, which
         # consumes one additional item on the stack:
         # https://bitcoin.org/en/developer-guide#standard-transactions
@@ -246,12 +250,14 @@ def input_script_multisig(
 
     # redeem script
     write_op_push(w, redeem_script_length)
-    output_script_multisig(pubkeys, multisig.m, w)
+    output_script_multisig(pubkeys, multisig.m, w=w, csv=multisig.csv)
 
     return w
 
 
-def output_script_multisig(pubkeys, m: int, w: bytearray = None) -> bytearray:
+def output_script_multisig(
+    pubkeys, m: int, w: bytearray = None, csv: int = None
+) -> bytearray:
     n = len(pubkeys)
     if n < 1 or n > 15 or m < 1 or m > 15 or m > n:
         raise ScriptsError("Invalid multisig parameters")
@@ -260,7 +266,39 @@ def output_script_multisig(pubkeys, m: int, w: bytearray = None) -> bytearray:
             raise ScriptsError("Invalid multisig parameters")
 
     if w is None:
-        w = empty_bytearray(output_script_multisig_length(pubkeys, m))
+        w = empty_bytearray(output_script_multisig_length(pubkeys, csv=csv))
+
+    if csv is not None:
+        user_pubkey, server_pubkey = pubkeys
+        # The script we create is:
+        #     OP_DEPTH OP_1SUB
+        #     OP_IF
+        #       # The stack contains the main and and recovery signatures.
+        #       # Check the main signature then fall through to check the recovery.
+        #       <server_pubkey> OP_CHECKSIGVERIFY
+        #     OP_ELSE
+        #       # The stack contains only the recovery signature.
+        #       # Check the CSV time has expired then fall though as above.
+        #       <csv_blocks> OP_CHECKSEQUENCEVERIFY OP_DROP
+        #     OP_ENDIF
+        #     # Check the recovery signature
+        #     <user_pubkey> OP_CHECKSIG
+        w.append(0x74)  # OP_DEPTH
+        w.append(0x8C)  # OP_1SUB
+        w.append(0x63)  # OP_IF
+        write_uint8(w, len(server_pubkey))
+        write_bytes(w, server_pubkey)
+        w.append(0xAD)  # OP_CHECKSIGVERIFY
+        w.append(0x67)  # OP_ELSE
+        write_scriptnum(w, csv)
+        w.append(0xB2)  # OP_CHECKSEQUENCEVERIFY
+        w.append(0x75)  # OP_DROP
+        w.append(0x68)  # OP_ENDIF
+        write_uint8(w, len(user_pubkey))
+        write_bytes(w, user_pubkey)
+        w.append(0xAC)  # OP_CHECKSIG
+        return w
+
     w.append(0x50 + m)  # numbers 1 to 16 are pushed as 0x50 + value
     for p in pubkeys:
         append_pubkey(w, p)
@@ -269,8 +307,12 @@ def output_script_multisig(pubkeys, m: int, w: bytearray = None) -> bytearray:
     return w
 
 
-def output_script_multisig_length(pubkeys, m: int) -> int:
-    return 1 + len(pubkeys) * (1 + 33) + 1 + 1  # see output_script_multisig
+def output_script_multisig_length(pubkeys, csv: int = None) -> int:
+    if csv is None:
+        return 1 + len(pubkeys) * (1 + 33) + 1 + 1  # see output_script_multisig
+    else:
+        server_pubkey, user_pubkey = pubkeys
+        return 3 + len(server_pubkey) + 2 + 5 + 3 + len(user_pubkey) + 1
 
 
 # OP_RETURN
