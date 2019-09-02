@@ -17,6 +17,7 @@
 import pytest
 
 from trezorlib import btc, messages as proto
+from trezorlib.ckd_public import deserialize
 from trezorlib.tools import H_, CallException, parse_path
 
 from ..tx_cache import tx_cache
@@ -421,3 +422,326 @@ class TestMsgSigntxSegwit:
                 assert exc.value.args[1].endswith(
                     "Transaction has changed during signing"
                 )
+
+    def test_send_multisig_csv_2(self, client):
+        indices = [1, 2]
+        nodes = [
+            btc.get_public_node(client, parse_path("49'/1'/%d'" % index))
+            for index in indices
+        ]
+        multisig = proto.MultisigRedeemScriptType(
+            nodes=[deserialize(n.xpub) for n in nodes],
+            address_n=[0, 1],  # non-hardened suffix for 49'/1'/1'/0/1
+            signatures=[b"", b""],
+            m=2,
+            csv=(6 * 24 * 7),
+        )
+        for index in indices:
+            assert (
+                btc.get_address(
+                    client,
+                    "Regtest",
+                    parse_path("49'/1'/%d'/0/1" % index),
+                    show_display=False,
+                    script_type=proto.InputScriptType.SPENDP2SHWITNESS,
+                    multisig=multisig,
+                )
+                == "2NG8sNrfkFuyfa6xWwG86PRHgrEw3JfDaXh"
+            )
+
+        inp1 = proto.TxInputType(
+            address_n=parse_path("49'/1'/1'/0/1"),
+            # PREV TX 02000000000101ac88d3bae0c6da5d43360ed2f18c72913a966adcceed08c4fc8d9c29560bbd1000000000171600144c5e44c0abdd0db4881c1b43befedfc94f743918feffffff0200c999150000000017a914fb1731356772ce6c36b525d7989092c21e385bab871c1c6c1401000000160014d2701db46da7bed472617d675f8daf05ecd091ac02473044022075b184e6c1c60ce36a346206f940a14f6f60ee0c3c269d4d614e15e406016c0f022078f90d831426987824ddb3dc6c8adacb59b11c5801fcc05bad311fe491a6e3810121030d245f4b5271bc25fe3e92b350b24a7fb747f5f01f6b7f9c09e90a49b2ac6f5cc8000000
+            prev_hash=bytes.fromhex(
+                "2736dc3bcedd0b5e6db75ab9a12138b89c14ea82450c39e6a91d91bfbcf83a66"
+            ),
+            prev_index=0,
+            script_type=proto.InputScriptType.SPENDP2SHWITNESS,
+            multisig=multisig,
+            amount=3_624_00000,
+        )
+
+        out1 = proto.TxOutputType(
+            address="2Mwmx4XkCxPC43yTjscn9M8fjS15FAQTBsK",
+            amount=3_623_90000,
+            script_type=proto.OutputScriptType.PAYTOADDRESS,
+        )
+
+        with client:
+            # sign with user key
+            client.set_expected_responses(
+                [
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXOUTPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.ButtonRequest(code=proto.ButtonRequestType.ConfirmOutput),
+                    proto.ButtonRequest(code=proto.ButtonRequestType.SignTx),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXOUTPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(request_type=proto.RequestType.TXFINISHED),
+                ]
+            )
+            signatures, _ = btc.sign_tx(
+                client, "Regtest", [inp1], [out1], prev_txes=None
+            )
+            # store signature
+            inp1.multisig.signatures[0] = signatures[0]
+            # sign with server key
+            inp1.address_n = parse_path("49'/1'/2'/0/1")
+            client.set_expected_responses(
+                [
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXOUTPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.ButtonRequest(code=proto.ButtonRequestType.ConfirmOutput),
+                    proto.ButtonRequest(code=proto.ButtonRequestType.SignTx),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXOUTPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(request_type=proto.RequestType.TXFINISHED),
+                ]
+            )
+            _, serialized_tx = btc.sign_tx(
+                client, "Regtest", [inp1], [out1], prev_txes=None
+            )
+
+        # TXID 031243d908cfbe2e3d59616c84807bf4dc7bdfeff308d35d6513b9aa3ad2d9dc
+        assert (
+            serialized_tx.hex()
+            == "01000000000101663af8bcbf911da9e6390c4582ea149cb83821a1b95ab76d5e0bddce3bdc362700000000232200207b6de8dfee7092963c7c1576950ad68ee6accc9e1f56fcc6fb65d4eacee19ab1ffffffff01f0a199150000000017a91431b01a5aba3d310743a8d853b5530a229e51c5758703473044022052e9733211819469919fec115f1860775c4234df6d653ea3a4c87e40198a162b02207823bdd01b5bcc208f148b06019d3361a1e11fe9346cfee878cd0cdf490a74240147304402206e95e24506eb0535775dee0afec879f1959c7b5c43892104e03f7b7a5497dabb02203cc01fbc23d53823cc6ef58e66982ba9eaa0a386513176a92bc4890ef076861b0150748c632102ec74358bd9ef1d1dab4261bef56b40b154e6790a0035b5caea0322404ad9b44dad6702f003b275682102b0aabdf00de32b7e9d6b3b1e30c25d9af664e1336c00441aee0affc49757cf0aac00000000"
+        )
+
+    def test_send_multisig_csv_1(self, client):
+        indices = [1, 2]
+        nodes = [
+            btc.get_public_node(client, parse_path("49'/1'/%d'" % index))
+            for index in indices
+        ]
+        multisig = proto.MultisigRedeemScriptType(
+            nodes=[deserialize(n.xpub) for n in nodes],
+            address_n=[0, 1],  # non-hardened suffix for 49'/1'/1'/0/1
+            signatures=[b"", b""],
+            m=1,  # doesn't affect CSV-multisig script, results in same address
+            csv=(6 * 24 * 7),
+        )
+        for index in indices:
+            assert (
+                btc.get_address(
+                    client,
+                    "Regtest",
+                    parse_path("49'/1'/%d'/0/1" % index),
+                    show_display=False,
+                    script_type=proto.InputScriptType.SPENDP2SHWITNESS,
+                    multisig=multisig,
+                )
+                == "2NG8sNrfkFuyfa6xWwG86PRHgrEw3JfDaXh"
+            )
+
+        inp1 = proto.TxInputType(
+            address_n=parse_path("49'/1'/1'/0/1"),
+            # PREV TX 02000000000101ad2522d89729c7c199b69a62b6c7adeea3b3c69c28c1c79cecfeb822c76ca09500000000171600144c5e44c0abdd0db4881c1b43befedfc94f743918feffffff0200c999150000000017a914fb1731356772ce6c36b525d7989092c21e385bab879ca6e734000000001600146d4cab1414be71b22834b4216de02937278401b002473044022036e87034c040cf7319bae0496c7fd3855ffa30471eee8cc3ad7817d5357e56d80220118e7d37475e794c65ef247141946073ea024d72c98207e6b067351b4fab69410121030d245f4b5271bc25fe3e92b350b24a7fb747f5f01f6b7f9c09e90a49b2ac6f5c91010000
+            prev_hash=bytes.fromhex(
+                "852d296aa0ceccd41f6316431b9ba78b12de06d9697578c207e9666ab8a4daa2"
+            ),
+            prev_index=0,
+            script_type=proto.InputScriptType.SPENDP2SHWITNESS,
+            multisig=multisig,
+            amount=3_624_00000,
+            sequence=multisig.csv,  # MUST BE PRESENT!
+        )
+
+        out1 = proto.TxOutputType(
+            address="2Mwmx4XkCxPC43yTjscn9M8fjS15FAQTBsK",
+            amount=3_623_90000,
+            script_type=proto.OutputScriptType.PAYTOADDRESS,
+        )
+
+        with client:
+            # sign with user key
+            client.set_expected_responses(
+                [
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXOUTPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.ButtonRequest(code=proto.ButtonRequestType.ConfirmOutput),
+                    proto.ButtonRequest(code=proto.ButtonRequestType.SignTx),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXOUTPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(request_type=proto.RequestType.TXFINISHED),
+                ]
+            )
+            _, serialized_tx = btc.sign_tx(
+                client,
+                "Regtest",
+                [inp1],
+                [out1],
+                prev_txes=None,
+                details=proto.SignTx(version=2),
+            )
+
+        # TXID 3839bde4860662595364f20f18dc6cb42673f195f942775cc0bc5bf7e6acb91e
+        assert (
+            serialized_tx.hex()
+            == "02000000000101a2daa4b86a66e907c2787569d906de128ba79b1b4316631fd4cccea06a292d8500000000232200207b6de8dfee7092963c7c1576950ad68ee6accc9e1f56fcc6fb65d4eacee19ab1f003000001f0a199150000000017a91431b01a5aba3d310743a8d853b5530a229e51c57587024830450221008015291b73f26ac4bcc1580d27e4c498623c6a75195879a762d3d2bae99f9a2102204605542d9a9e4448698efede25e92caac2f5150e3dc56ffc008ab9839db9502b0150748c632102ec74358bd9ef1d1dab4261bef56b40b154e6790a0035b5caea0322404ad9b44dad6702f003b275682102b0aabdf00de32b7e9d6b3b1e30c25d9af664e1336c00441aee0affc49757cf0aac00000000"
+        )
+
+    def test_send_multisig_csv_2_testnet(self, client):
+        indices = [1, 2]
+        nodes = [
+            btc.get_public_node(client, parse_path("49'/1'/%d'" % index))
+            for index in indices
+        ]
+        multisig = proto.MultisigRedeemScriptType(
+            nodes=[deserialize(n.xpub) for n in nodes],
+            address_n=[0, 1],  # non-hardened suffix for 49'/1'/1'/0/1
+            signatures=[b"", b""],
+            m=2,
+            csv=(6 * 24 * 7),
+        )
+        for index in indices:
+            assert (
+                btc.get_address(
+                    client,
+                    "Testnet",
+                    parse_path("49'/1'/%d'/0/1" % index),
+                    show_display=False,
+                    script_type=proto.InputScriptType.SPENDP2SHWITNESS,
+                    multisig=multisig,
+                )
+                == "2NG8sNrfkFuyfa6xWwG86PRHgrEw3JfDaXh"
+            )
+
+        inp1 = proto.TxInputType(
+            address_n=parse_path("49'/1'/1'/0/1"),
+            # PREV TX 0200000000010139cb1e2ac465944003be8208cf6c53a2e8764ca435f35855cff5eb0b534567860000000017160014c7be101d3093dfe09d912f6d02148371a145c442feffffff0240420f000000000017a914fb1731356772ce6c36b525d7989092c21e385bab87837111000000000016001473f0e0d4eb863e2499075dc2816647d33e6dcbab0247304402202ac37b2acfb171cb10d678c36448137b309361b23f14620666ad59e2278fbf5302200430cf8eec20d9508b3de4de0410d94fbbd9253df62d5a27f28c981e19275bdd0121025d0ae6920d50f77f5f3c2d4a065bdd1309becec4557a53e472bec563dc205683338a1800
+            prev_hash=bytes.fromhex(
+                "8925a4882af6f4209b6d7f6fa777c554bde706ddce90204a705b26421f662a37"
+            ),
+            prev_index=0,
+            script_type=proto.InputScriptType.SPENDP2SHWITNESS,
+            multisig=multisig,
+            amount=10_00000,
+        )
+
+        out1 = proto.TxOutputType(
+            address="2N3iEJXZZXPWQJmTMe2YHLzWDPpBuA93n1P",
+            amount=9_99000,
+            script_type=proto.OutputScriptType.PAYTOADDRESS,
+        )
+
+        with client:
+            # sign with user key
+            client.set_expected_responses(
+                [
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXOUTPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.ButtonRequest(code=proto.ButtonRequestType.ConfirmOutput),
+                    proto.ButtonRequest(code=proto.ButtonRequestType.SignTx),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXOUTPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(request_type=proto.RequestType.TXFINISHED),
+                ]
+            )
+            signatures, _ = btc.sign_tx(
+                client, "Testnet", [inp1], [out1], prev_txes=None
+            )
+            # store signature
+            inp1.multisig.signatures[0] = signatures[0]
+            # sign with server key
+            inp1.address_n = parse_path("49'/1'/2'/0/1")
+            client.set_expected_responses(
+                [
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXOUTPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.ButtonRequest(code=proto.ButtonRequestType.ConfirmOutput),
+                    proto.ButtonRequest(code=proto.ButtonRequestType.SignTx),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXOUTPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(request_type=proto.RequestType.TXFINISHED),
+                ]
+            )
+            _, serialized_tx = btc.sign_tx(
+                client, "Testnet", [inp1], [out1], prev_txes=None
+            )
+
+        # TXID 0cc9159979949c2324907e6a9fb8afeb79be51e6fa5b65e4014eb03b38a1f3ba
+        assert (
+            serialized_tx.hex()
+            == "01000000000101372a661f42265b704a2090cedd06e7bd54c577a76f7f6d9b20f4f62a88a4258900000000232200207b6de8dfee7092963c7c1576950ad68ee6accc9e1f56fcc6fb65d4eacee19ab1ffffffff01583e0f000000000017a91472ccc05a47677da539332a3cde25116f5a3beb7b8703483045022100961064a7f1ad62e03d5bd02e9ef1bd9e15da591f7359d69bb30808a817dec9aa02203c7d8c1de303a924a9030840ce5d902097ed1cff9ef2bdb7c7a8c13ec09577ce0147304402205663523c2f21936f8da078556ad6d7bf476d18014913cccf2245127b9b634253022034c97b0fd6b6168adf53a6f49e2171de40038f49b35b0207963f21ee15faeeb80150748c632102ec74358bd9ef1d1dab4261bef56b40b154e6790a0035b5caea0322404ad9b44dad6702f003b275682102b0aabdf00de32b7e9d6b3b1e30c25d9af664e1336c00441aee0affc49757cf0aac00000000"
+        )

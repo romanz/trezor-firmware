@@ -43,7 +43,7 @@ def get_address(
                 )
 
             pubkeys = multisig_get_pubkeys(multisig)
-            address = address_multisig_p2sh(pubkeys, multisig.m, coin)
+            address = address_multisig_p2sh(pubkeys, multisig.m, multisig.csv, coin)
             if coin.cashaddr_prefix is not None:
                 address = address_to_cashaddr(address, coin)
             return address
@@ -64,7 +64,9 @@ def get_address(
         # native p2wsh multisig
         if multisig is not None:
             pubkeys = multisig_get_pubkeys(multisig)
-            return address_multisig_p2wsh(pubkeys, multisig.m, coin.bech32_prefix)
+            return address_multisig_p2wsh(
+                pubkeys, multisig.m, multisig.csv, coin.bech32_prefix
+            )
 
         # native p2wpkh
         return address_p2wpkh(node.public_key(), coin)
@@ -79,7 +81,9 @@ def get_address(
         # p2wsh multisig nested in p2sh
         if multisig is not None:
             pubkeys = multisig_get_pubkeys(multisig)
-            return address_multisig_p2wsh_in_p2sh(pubkeys, multisig.m, coin)
+            return address_multisig_p2wsh_in_p2sh(
+                pubkeys, multisig.m, multisig.csv, coin
+            )
 
         # p2wpkh nested in p2sh
         return address_p2wpkh_in_p2sh(node.public_key(), coin)
@@ -88,32 +92,34 @@ def get_address(
         raise AddressError(FailureType.ProcessError, "Invalid script type")
 
 
-def address_multisig_p2sh(pubkeys: List[bytes], m: int, coin: CoinInfo):
+def address_multisig_p2sh(pubkeys: List[bytes], m: int, csv: int, coin: CoinInfo):
     if coin.address_type_p2sh is None:
         raise AddressError(
             FailureType.ProcessError, "Multisig not enabled on this coin"
         )
-    redeem_script = output_script_multisig(pubkeys, m)
+    redeem_script = output_script_multisig(pubkeys, m, csv=csv)
     redeem_script_hash = coin.script_hash(redeem_script)
     return address_p2sh(redeem_script_hash, coin)
 
 
-def address_multisig_p2wsh_in_p2sh(pubkeys: List[bytes], m: int, coin: CoinInfo):
+def address_multisig_p2wsh_in_p2sh(
+    pubkeys: List[bytes], m: int, csv: int, coin: CoinInfo
+):
     if coin.address_type_p2sh is None:
         raise AddressError(
             FailureType.ProcessError, "Multisig not enabled on this coin"
         )
-    witness_script = output_script_multisig(pubkeys, m)
+    witness_script = output_script_multisig(pubkeys, m, csv=csv)
     witness_script_hash = sha256(witness_script).digest()
     return address_p2wsh_in_p2sh(witness_script_hash, coin)
 
 
-def address_multisig_p2wsh(pubkeys: List[bytes], m: int, hrp: str):
+def address_multisig_p2wsh(pubkeys: List[bytes], m: int, csv: int, hrp: str):
     if not hrp:
         raise AddressError(
             FailureType.ProcessError, "Multisig not enabled on this coin"
         )
-    witness_script = output_script_multisig(pubkeys, m)
+    witness_script = output_script_multisig(pubkeys, m, csv=csv)
     witness_script_hash = sha256(witness_script).digest()
     return address_p2wsh(witness_script_hash, hrp)
 
