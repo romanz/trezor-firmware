@@ -628,3 +628,120 @@ class TestMsgSigntxSegwit:
             serialized_tx.hex()
             == "02000000000101a2daa4b86a66e907c2787569d906de128ba79b1b4316631fd4cccea06a292d8500000000232200207b6de8dfee7092963c7c1576950ad68ee6accc9e1f56fcc6fb65d4eacee19ab1f003000001f0a199150000000017a91431b01a5aba3d310743a8d853b5530a229e51c57587024830450221008015291b73f26ac4bcc1580d27e4c498623c6a75195879a762d3d2bae99f9a2102204605542d9a9e4448698efede25e92caac2f5150e3dc56ffc008ab9839db9502b0150748c632102ec74358bd9ef1d1dab4261bef56b40b154e6790a0035b5caea0322404ad9b44dad6702f003b275682102b0aabdf00de32b7e9d6b3b1e30c25d9af664e1336c00441aee0affc49757cf0aac00000000"
         )
+
+    def test_send_multisig_csv_2_testnet(self, client):
+        indices = [1, 2]
+        nodes = [
+            btc.get_public_node(client, parse_path("49'/1'/%d'" % index))
+            for index in indices
+        ]
+        multisig = proto.MultisigRedeemScriptType(
+            nodes=[deserialize(n.xpub) for n in nodes],
+            address_n=[0, 1],  # non-hardened suffix for 49'/1'/1'/0/1
+            signatures=[b"", b""],
+            m=2,
+            csv=(6 * 24 * 7),
+        )
+        for index in indices:
+            assert (
+                btc.get_address(
+                    client,
+                    "Testnet",
+                    parse_path("49'/1'/%d'/0/1" % index),
+                    show_display=False,
+                    script_type=proto.InputScriptType.SPENDP2SHWITNESS,
+                    multisig=multisig,
+                )
+                == "2NG8sNrfkFuyfa6xWwG86PRHgrEw3JfDaXh"
+            )
+
+        inp1 = proto.TxInputType(
+            address_n=parse_path("49'/1'/1'/0/1"),
+            # PREV TX 0200000000010139cb1e2ac465944003be8208cf6c53a2e8764ca435f35855cff5eb0b534567860000000017160014c7be101d3093dfe09d912f6d02148371a145c442feffffff0240420f000000000017a914fb1731356772ce6c36b525d7989092c21e385bab87837111000000000016001473f0e0d4eb863e2499075dc2816647d33e6dcbab0247304402202ac37b2acfb171cb10d678c36448137b309361b23f14620666ad59e2278fbf5302200430cf8eec20d9508b3de4de0410d94fbbd9253df62d5a27f28c981e19275bdd0121025d0ae6920d50f77f5f3c2d4a065bdd1309becec4557a53e472bec563dc205683338a1800
+            prev_hash=bytes.fromhex(
+                "8925a4882af6f4209b6d7f6fa777c554bde706ddce90204a705b26421f662a37"
+            ),
+            prev_index=0,
+            script_type=proto.InputScriptType.SPENDP2SHWITNESS,
+            multisig=multisig,
+            amount=10_00000,
+        )
+
+        out1 = proto.TxOutputType(
+            address="2N3iEJXZZXPWQJmTMe2YHLzWDPpBuA93n1P",
+            amount=9_99000,
+            script_type=proto.OutputScriptType.PAYTOADDRESS,
+        )
+
+        with client:
+            # sign with user key
+            client.set_expected_responses(
+                [
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXOUTPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.ButtonRequest(code=proto.ButtonRequestType.ConfirmOutput),
+                    proto.ButtonRequest(code=proto.ButtonRequestType.SignTx),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXOUTPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(request_type=proto.RequestType.TXFINISHED),
+                ]
+            )
+            signatures, _ = btc.sign_tx(
+                client, "Testnet", [inp1], [out1], prev_txes=None
+            )
+            # store signature
+            inp1.multisig.signatures[0] = signatures[0]
+            # sign with server key
+            inp1.address_n = parse_path("49'/1'/2'/0/1")
+            client.set_expected_responses(
+                [
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXOUTPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.ButtonRequest(code=proto.ButtonRequestType.ConfirmOutput),
+                    proto.ButtonRequest(code=proto.ButtonRequestType.SignTx),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXOUTPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(
+                        request_type=proto.RequestType.TXINPUT,
+                        details=proto.TxRequestDetailsType(request_index=0),
+                    ),
+                    proto.TxRequest(request_type=proto.RequestType.TXFINISHED),
+                ]
+            )
+            _, serialized_tx = btc.sign_tx(
+                client, "Testnet", [inp1], [out1], prev_txes=None
+            )
+
+        # TXID 0cc9159979949c2324907e6a9fb8afeb79be51e6fa5b65e4014eb03b38a1f3ba
+        assert (
+            serialized_tx.hex()
+            == "01000000000101372a661f42265b704a2090cedd06e7bd54c577a76f7f6d9b20f4f62a88a4258900000000232200207b6de8dfee7092963c7c1576950ad68ee6accc9e1f56fcc6fb65d4eacee19ab1ffffffff01583e0f000000000017a91472ccc05a47677da539332a3cde25116f5a3beb7b8703483045022100961064a7f1ad62e03d5bd02e9ef1bd9e15da591f7359d69bb30808a817dec9aa02203c7d8c1de303a924a9030840ce5d902097ed1cff9ef2bdb7c7a8c13ec09577ce0147304402205663523c2f21936f8da078556ad6d7bf476d18014913cccf2245127b9b634253022034c97b0fd6b6168adf53a6f49e2171de40038f49b35b0207963f21ee15faeeb80150748c632102ec74358bd9ef1d1dab4261bef56b40b154e6790a0035b5caea0322404ad9b44dad6702f003b275682102b0aabdf00de32b7e9d6b3b1e30c25d9af664e1336c00441aee0affc49757cf0aac00000000"
+        )
