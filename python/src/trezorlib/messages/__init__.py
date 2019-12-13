@@ -54,6 +54,8 @@ from .DebugLinkStop import DebugLinkStop
 from .DebugMoneroDiagAck import DebugMoneroDiagAck
 from .DebugMoneroDiagRequest import DebugMoneroDiagRequest
 from .ECDHSessionKey import ECDHSessionKey
+from .ElementsGetRangeProofNonce import ElementsGetRangeProofNonce
+from .ElementsRangeProofNonce import ElementsRangeProofNonce
 from .Entropy import Entropy
 from .EntropyAck import EntropyAck
 from .EntropyRequest import EntropyRequest
