@@ -98,15 +98,24 @@ class Keychain:
 
     def derive_slip77_blinding_private_key(self, script: bytes) -> bytes:
         """Following the derivation by Elements/Liquid."""
+        from ubinascii import hexlify as h
+
         master_node = self.derive(node_path=[b"SLIP-0077"], curve_name="slip21")
         assert isinstance(master_node, Slip21Node)
-        return hmac.new(
+        private_key = hmac.new(
             key=master_node.key(), msg=script, digestmod=hashlib.sha256
         ).digest()
+        print("SLIP77: script=", h(script))
+        print("SLIP77: priv=", h(private_key))
+        return private_key
 
     def derive_slip77_blinding_public_key(self, script: bytes) -> bytes:
+        from ubinascii import hexlify as h
+
         private_key = self.derive_slip77_blinding_private_key(script)
-        return secp256k1.publickey(private_key)
+        pubkey = secp256k1.publickey(private_key)
+        print("SLIP77: pub=", h(pubkey))
+        return pubkey
 
 
 async def get_keychain(ctx: wire.Context, namespaces: list) -> Keychain:
