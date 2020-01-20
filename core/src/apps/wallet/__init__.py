@@ -15,6 +15,7 @@ def boot() -> None:
     ]
     if not utils.BITCOIN_ONLY:
         ns.append(["slip21"])
+        wire.add(MessageType.ElementsGetRangeProofNonce, __name__, "get_rangeproof_nonce", ns)
 
     wire.add(MessageType.GetPublicKey, __name__, "get_public_key", ns)
     wire.add(MessageType.GetAddress, __name__, "get_address", ns)
