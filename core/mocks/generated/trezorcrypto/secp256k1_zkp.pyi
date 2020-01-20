@@ -2,18 +2,6 @@ from typing import *
 
 
 # extmod/modtrezorcrypto/modtrezorcrypto-secp256k1_zkp.h
-class RangeProofConfig:
-    """
-    Range proof configuration.
-    """
-
-    def __init__(self, min_value: int, exponent: int, bits: int):
-        """
-        Initialize range proof configuration.
-        """
-
-
-# extmod/modtrezorcrypto/modtrezorcrypto-secp256k1_zkp.h
 class Context:
     """
     Owns a secp256k1 context.
@@ -101,43 +89,4 @@ class Context:
     def verify_balance(self, commitments: Tuple[bytes], num_of_inputs: int)
         '''
         Verify that Pedersen commitments are balanced.
-        '''
-
-    def rangeproof_sign(self, config: RangeProofConfig, value: int,
-                        commit: bytes, blind: bytes, nonce: bytes,
-                        message: bytes, extra_commit: bytes,
-                        gen: bytes, proof_buffer: bytearray) -> memoryview:
-        '''
-        Return a range proof for specified value (as a memoryview of the
-        specified bytearray).
-        '''
-
-    def rangeproof_rewind(self, conf_value: bytes, conf_asset: bytes,
-                          nonce: bytes, range_proof: bytes,
-                          extra_commit: bytes, message: bytearray) ->
-                          (value: long, blind: bytes):
-        '''
-        Rewind a range proof to get the value, blinding factor and message.
-        '''
-
-    def surjection_proof(self, output_asset: bytes, output_asset_blind: bytes,
-                         input_assets: bytes, input_assets_blinds: bytes,
-                         input_assets_len: int, random_seed32: bytes,
-                         proof_buffer: bytearray) -> bytes:
-        '''
-        Generate a surjection proof for specified input assets.
-        '''
-
-    def verify_surjection_proof(
-        self, proof: bytes, output_generator: bytes, input_generators:
-        Tuple[bytes]
-    ) -> bytes:
-        '''
-        Verify a surjection proof for specified blinded assets.
-        '''
-
-    def allocate_proof_buffer() -> bytearray
-        '''
-        Allocate a buffer, large enough for holding a range proof / reduced size
-        surjection proof.
         '''

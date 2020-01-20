@@ -118,7 +118,6 @@ if EVERYTHING:
         'ENABLE_MODULE_RANGEPROOF',
         'ENABLE_MODULE_RECOVERY',
         'ENABLE_MODULE_ECDH',
-        'ENABLE_MODULE_SURJECTIONPROOF',
     ]
     SOURCE_MOD_SECP256K1_ZKP += [
         'vendor/secp256k1-zkp/src/secp256k1.c',
