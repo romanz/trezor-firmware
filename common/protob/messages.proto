@@ -258,4 +258,6 @@ enum MessageType {
     // Elements
     MessageType_ElementsGetRangeProofNonce = 900 [(wire_in) = true];
     MessageType_ElementsRangeProofNonce = 901 [(wire_out) = true];
+    MessageType_ElementsGetBlindingPubKey = 902 [(wire_in) = true];
+    MessageType_ElementsBlindingPubKey = 903 [(wire_out) = true];
 }
