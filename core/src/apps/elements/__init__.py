@@ -7,3 +7,6 @@ def boot() -> None:
     wire.add(
         MessageType.ElementsGetRangeProofNonce, __name__, "get_rangeproof_nonce", ns
     )
+    wire.add(
+        MessageType.ElementsGetBlindingPubKey, __name__, "get_blinding_pubkey", ns
+    )

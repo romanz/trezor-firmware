@@ -24,3 +24,16 @@ message ElementsGetRangeProofNonce {
 message ElementsRangeProofNonce {
 	optional bytes nonce = 1;
 }
+
+
+message ElementsGetBlindingPubKey {
+    optional bytes script_pubkey = 1;
+}
+
+/**
+ * Response: Contains Elements blinding pubkey.
+ * @end
+ */
+message ElementsBlindingPubKey {
+	optional bytes pubkey = 1;
+}

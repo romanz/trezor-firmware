@@ -197,3 +197,5 @@ if not utils.BITCOIN_ONLY:
     WebAuthnRemoveResidentCredential = 803  # type: Literal[803]
     ElementsGetRangeProofNonce = 900  # type: Literal[900]
     ElementsRangeProofNonce = 901  # type: Literal[901]
+    ElementsGetBlindingPubKey = 902  # type: Literal[902]
+    ElementsBlindingPubKey = 903  # type: Literal[903]
